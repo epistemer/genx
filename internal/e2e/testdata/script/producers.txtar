@@ -26,6 +26,21 @@ cp manifests/slow.yaml genx.yaml
 ! exec genx
 cmp stderr want/slow.txt
 
+# A command that isn't installed.
+cp manifests/nocmd.yaml genx.yaml
+! exec genx
+cmp stderr want/nocmd.txt
+
+# A declared file that isn't a JSON object.
+cp manifests/array.yaml genx.yaml
+! exec genx
+cmp stderr want/array.txt
+
+# Two producers that declare the same file.
+cp manifests/twice.yaml genx.yaml
+! exec genx
+cmp stderr want/twice.txt
+
 -- gen/gen.go --
 package gen
 -- gen/genx.meta.yaml --
@@ -79,6 +94,35 @@ producers:
     run: [sleepy, 30s]
     timeout: 200ms
     emits: [zz_x.labels.json]
+-- data/array.json --
+[]
+-- manifests/nocmd.yaml --
+version: 1
+producers:
+  - name: absent
+    run: [genx-no-such-command, gen]
+    emits: [zz_x.labels.json]
+-- manifests/array.yaml --
+version: 1
+producers:
+  - name: list
+    run: [produce, data/array.json, zz_x.labels.json]
+    emits: [zz_x.labels.json]
+-- manifests/twice.yaml --
+version: 1
+producers:
+  - name: one
+    run: [produce, data/plain.json, zz_x.labels.json]
+    emits: [zz_x.labels.json]
+  - name: two
+    run: [produce, data/plain.json, zz_x.labels.json]
+    emits: [zz_x.labels.json]
+-- want/nocmd.txt --
+genx: producer absent: genx-no-such-command gen: "genx-no-such-command" isn't installed, or isn't on PATH; install it, or run a module's tool with [go, tool, ...]
+-- want/array.txt --
+genx: producer list: zz_x.labels.json: not an object, so it can't name its domain (a foreign file needs "domain" in the manifest)
+-- want/twice.txt --
+genx: genx.yaml:8: producers[1].emits[0]: duplicate emit path "zz_x.labels.json" (also line 5)
 -- want/fails.txt --
 broken: failing: some args
 genx: producer broken: fail some args: exit status 3
@@ -89,4 +133,4 @@ genx: producer plain: zz_x.labels.json: no "domain" field (a foreign file needs 
 -- want/major.txt --
 genx: example.com/app/gen:read needs labels/v1, but a/zz_a.labels.json from producer new says labels/v2; upgrade the module that writes it, or the one that reads it
 -- want/slow.txt --
-genx: producer slow: timed out after 200ms
+genx: producer slow: timed out after 200ms (raise its timeout in genx.yaml)

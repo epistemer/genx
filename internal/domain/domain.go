@@ -27,41 +27,41 @@ func (d Domain) String() string {
 func Parse(s string) (Domain, error) {
 	idx := strings.IndexByte(s, '/')
 	if idx == -1 {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 	name := s[:idx]
 	ver := s[idx+1:]
 
 	// Validate name: one or more parts joined by '.'
 	if name == "" {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 	parts := strings.Split(name, ".")
 	for _, part := range parts {
 		if !isValidPart(part) {
-			return Domain{}, fmt.Errorf("%q: invalid domain", s)
+			return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 		}
 	}
 
 	// Validate version: "v" + [1-9][0-9]*
 	if !strings.HasPrefix(ver, "v") {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 	numStr := ver[1:]
 	if len(numStr) == 0 {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 	if numStr[0] < '1' || numStr[0] > '9' {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 	for i := 1; i < len(numStr); i++ {
 		if numStr[i] < '0' || numStr[i] > '9' {
-			return Domain{}, fmt.Errorf("%q: invalid domain", s)
+			return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 		}
 	}
 	major, err := strconv.Atoi(numStr)
 	if err != nil {
-		return Domain{}, fmt.Errorf("%q: invalid domain", s)
+		return Domain{}, fmt.Errorf("%q: invalid domain (want name/vN, such as labels/v1)", s)
 	}
 
 	return Domain{Name: name, Major: major}, nil

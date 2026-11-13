@@ -81,7 +81,10 @@ func (s *state) command(p manifest.Producer, argv []string) error {
 		return s.ctx.Err()
 	}
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("%s: timed out after %s", step, p.Timeout)
+		return fmt.Errorf("%s: timed out after %s (raise its timeout in %s)", step, p.Timeout, ManifestFile)
+	}
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("%s: %s: %q isn't installed, or isn't on PATH; install it, or run a module's tool with [go, tool, ...]", step, strings.Join(argv, " "), argv[0])
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %s: %w", step, strings.Join(argv, " "), err)
@@ -153,7 +156,7 @@ func (s *state) readDomainFile(e manifest.Emit) (any, domain.Domain, error) {
 	}
 	d, err := domainOf(v)
 	if err != nil {
-		return nil, domain.Domain{}, fmt.Errorf("%s: %w", e.Path, err)
+		return nil, domain.Domain{}, fmt.Errorf(`%s: %w (a foreign file needs "domain" in the manifest)`, e.Path, err)
 	}
 	return v, d, nil
 }
@@ -162,11 +165,11 @@ func (s *state) readDomainFile(e manifest.Emit) (any, domain.Domain, error) {
 func domainOf(v any) (domain.Domain, error) {
 	obj, ok := v.(map[string]any)
 	if !ok {
-		return domain.Domain{}, errors.New(`not an object, so it can't name its domain (a foreign file needs "domain" in the manifest)`)
+		return domain.Domain{}, errors.New("not an object, so it can't name its domain")
 	}
 	raw, ok := obj["domain"].(string)
 	if !ok {
-		return domain.Domain{}, errors.New(`no "domain" field (a foreign file needs "domain" in the manifest)`)
+		return domain.Domain{}, errors.New(`no "domain" field`)
 	}
 	return domain.Parse(raw)
 }

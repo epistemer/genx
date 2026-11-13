@@ -146,7 +146,7 @@ func readMetafile(pkg, dir string) (*meta.Metafile, *os.Root, error) {
 	b, err := root.ReadFile(MetaFile)
 	if errors.Is(err, os.ErrNotExist) {
 		root.Close()
-		return nil, nil, fmt.Errorf("use %s: the package has no %s", pkg, MetaFile)
+		return nil, nil, fmt.Errorf("use %s: the package has no %s, so it ships no generators; name the package that does", pkg, MetaFile)
 	}
 	if err != nil {
 		root.Close()

@@ -63,7 +63,7 @@ func (s *state) execute(m *manifest.Manifest, gens []generator) error {
 	check := s.check
 	prev, err := s.readLock()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w\n%s is generated: restore it from version control, or delete it and run genx", err, LockFile)
 	}
 	steps := s.steps(m.Producers, gens)
 	pl, err := plan.New(steps)
@@ -98,6 +98,9 @@ func (s *state) execute(m *manifest.Manifest, gens []generator) error {
 		if err := pl.Done(i, wrote); err != nil {
 			return err
 		}
+	}
+	if err := s.ctx.Err(); err != nil {
+		return err
 	}
 	if check {
 		return s.compare(prev)

@@ -279,7 +279,7 @@ labels file's Go comes out as before.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M9.1 | Every failure path has an e2e script, and each message says what to do next | M | A checklist of failures, each linked to its script |
+| ✓ | M9.1 | Every failure path has an e2e script, and each message says what to do next | M | A checklist of failures, each linked to its script: [failures.md](failures.md) |
 | ☐ | M9.2 | Timings: a cold and a warm run for cfgx's zp example, and one generator over zp's sqlc request | S | The numbers are in the README as measured |
 | ☐ | M9.3 | Review of `genxtest` and of both file formats against the interface | S | Checklist merged |
 | ☐ | M9.4 | README quickstart: add the driver to an app that uses cfgx and i18n | M | A newcomer can follow it with no other help |

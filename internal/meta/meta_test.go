@@ -129,7 +129,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "invalid generator name",
 			data:    "version: 1\ngenerators:\n  BadName:\n    doc: d\n    needs: [l/v1]\n    units: u\n    out: o\n    template: t.tmpl\n",
-			wantErr: `genx.meta.yaml:3: generators.BadName: "BadName" is not a valid generator name`,
+			wantErr: `genx.meta.yaml:3: generators.BadName: "BadName" is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)`,
 		},
 		{
 			name:    "generator unknown field",
@@ -169,7 +169,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "needs invalid domain",
 			data:    "version: 1\ngenerators:\n  g:\n    doc: d\n    needs: [bad]\n    units: u\n    out: o\n    template: t.tmpl\n",
-			wantErr: `genx.meta.yaml:5: generators.g.needs[0]: "bad": invalid domain`,
+			wantErr: `genx.meta.yaml:5: generators.g.needs[0]: "bad": invalid domain (want name/vN, such as labels/v1)`,
 		},
 		{
 			name:    "missing units",
@@ -229,7 +229,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "emits invalid domain",
 			data:    "version: 1\ngenerators:\n  g:\n    doc: d\n    needs: [l/v1]\n    units: u\n    out: o\n    emits: bad_domain\n",
-			wantErr: `genx.meta.yaml:8: generators.g.emits: "bad_domain": invalid domain`,
+			wantErr: `genx.meta.yaml:8: generators.g.emits: "bad_domain": invalid domain (want name/vN, such as labels/v1)`,
 		},
 	}
 

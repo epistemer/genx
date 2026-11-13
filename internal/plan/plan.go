@@ -278,7 +278,7 @@ func (p *Plan) missing(i int, d domain.Domain) error {
 			}
 		}
 	}
-	return fmt.Errorf("%s needs %s, which no step writes", name, d)
+	return fmt.Errorf("%s needs %s, which no step writes; add what writes it to genx.yaml, or remove what needs it", name, d)
 }
 
 // surelyWritten reports whether a finished step wrote d, or a pending step

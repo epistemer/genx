@@ -185,7 +185,7 @@ func TestOrder_Table(t *testing.T) {
 			steps: []plan.Step{
 				{Name: "github.com/epistemer/i18n:labels", Needs: []domain.Domain{d("labels", 1)}, Known: true},
 			},
-			wantErr: "github.com/epistemer/i18n:labels needs labels/v1, which no step writes",
+			wantErr: "github.com/epistemer/i18n:labels needs labels/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it",
 		},
 		{
 			name: "missing second domain in order",
@@ -193,7 +193,7 @@ func TestOrder_Table(t *testing.T) {
 				{Name: "prod", Writes: []domain.Domain{d("a", 1)}, Known: true},
 				{Name: "gen", Needs: []domain.Domain{d("a", 1), d("missing", 1)}, Known: true},
 			},
-			wantErr: "gen needs missing/v1, which no step writes",
+			wantErr: "gen needs missing/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it",
 		},
 		{
 			name: "major mismatch message",
@@ -227,7 +227,7 @@ func TestOrder_Table(t *testing.T) {
 				{Name: "gen", Needs: []domain.Domain{d("labels", 1)}, Known: true},
 				{Name: "prod", Writes: []domain.Domain{d("labels", 1)}, Known: false},
 			},
-			wantErr: "gen needs labels/v1, which no step writes",
+			wantErr: "gen needs labels/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it",
 		},
 		{
 			name: "duplicate step names in Order",
@@ -396,7 +396,7 @@ func TestPlan_StepByStep(t *testing.T) {
 			t.Fatalf("Done(1) unexpected error: %v", err)
 		}
 		_, _, err = p.Next()
-		want := "github.com/epistemer/i18n:labels needs labels/v1, which no step writes"
+		want := "github.com/epistemer/i18n:labels needs labels/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it"
 		if err == nil || err.Error() != want {
 			t.Fatalf("Next() 2 error = %v, want %q", err, want)
 		}
@@ -597,7 +597,7 @@ func TestNeedNeverWrittenFailsAtTheEnd(t *testing.T) {
 		{Name: "producer x", Writes: []domain.Domain{d("x", 1)}, Known: true},
 	}
 	_, err := strictOrder(steps)
-	want := "gen needs labels/v1, which no step writes"
+	want := "gen needs labels/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it"
 	if err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %q", err, want)
 	}

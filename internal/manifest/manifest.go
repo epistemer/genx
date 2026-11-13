@@ -132,7 +132,7 @@ func parseProducer(file string, node *yaml.Node, path string, seenProducers map[
 		name, ok := yamlx.ReadString(nameEntry.ValNode, namePath, errs)
 		if ok {
 			if !isValidName(name) {
-				errs.Add(nameEntry.ValNode.Line, namePath, fmt.Sprintf("%q is not a valid producer name", name))
+				errs.Add(nameEntry.ValNode.Line, namePath, fmt.Sprintf("%q is not a valid producer name (a lowercase letter, then lowercase letters, digits and -)", name))
 			} else if seenProducers[name] {
 				errs.Add(nameEntry.ValNode.Line, namePath, fmt.Sprintf("duplicate producer name %q", name))
 			} else {
@@ -326,8 +326,8 @@ func parseEmit(file string, node *yaml.Node, path string, seenEmits map[string]i
 
 func checkDuplicateEmit(line int, path, p string, seenEmits map[string]int, errs *yamlx.Errors) {
 	folded := paths.Fold(p)
-	if _, exists := seenEmits[folded]; exists {
-		errs.Add(line, path, fmt.Sprintf("duplicate emit path %q", p))
+	if first, exists := seenEmits[folded]; exists {
+		errs.Add(line, path, fmt.Sprintf("duplicate emit path %q (also line %d)", p, first))
 		return
 	}
 	seenEmits[folded] = line
@@ -375,7 +375,7 @@ func parseUse(file string, node *yaml.Node, path string, seenUse map[string]bool
 		}
 		gen := genNode.Value
 		if !isValidName(gen) {
-			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("%q is not a valid generator name", gen))
+			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", gen))
 			continue
 		}
 		pairKey := pkg + ":" + gen
