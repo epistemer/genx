@@ -101,7 +101,10 @@ func TestGenerated(t *testing.T) { genxtest.AssertGenerated(t) }
 What's next:
 
 - Other packages' generators are switched on the same way, in `use`.
-  `go tool genx list` shows the ones in your build that aren't.
+  `go tool genx list` shows the ones in your build that aren't. A
+  generator that takes parameters, such as the directory it writes to, gets
+  them from the entry's map form:
+  `- <package>: {generators: [...], params: {dir: internal/db}}`.
 - Writing a producer: [docs/guides/producer.md](docs/guides/producer.md).
 - Writing a generator: [docs/guides/generator.md](docs/guides/generator.md),
   with a complete, tested example in [examples/labels](examples/labels).

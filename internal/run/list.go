@@ -14,6 +14,7 @@ import (
 	"github.com/epistemer/genx/internal/manifest"
 	"github.com/epistemer/genx/internal/meta"
 	"github.com/epistemer/genx/internal/plan"
+	"github.com/epistemer/genx/internal/query"
 )
 
 // List writes the steps in the order a run would take them, with what each
@@ -61,6 +62,13 @@ func List(ctx context.Context, opts Options) error {
 		fmt.Fprintf(w, "   needs   %s\n", joinDomains(g.needs))
 		if g.template == nil {
 			fmt.Fprintf(w, "   emits   %s\n", g.emits)
+		}
+		for _, p := range g.params {
+			mark := ""
+			if !p.byApp {
+				mark = " (default)"
+			}
+			fmt.Fprintf(w, "   param   %s = %s%s\n", p.name, query.Compact(p.value), mark)
 		}
 	}
 	return s.listUnswitched(w, m.Use, len(order) > 0)

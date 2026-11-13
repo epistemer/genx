@@ -28,6 +28,8 @@ type generator struct {
 	out      *query.Query
 	template *render.Template // nil when the generator emits a domain
 	emits    domain.Domain
+	params   []param        // by name, for genx list
+	vars     map[string]any // $params, as every query reads it
 }
 
 // writes is the domain a generator writes, if it emits one.
@@ -67,9 +69,13 @@ func compileUse(u manifest.Use, dir string) ([]generator, error) {
 		return nil, err
 	}
 	defer root.Close()
+	params, err := bindParams(u.Package, mf.Params, manifestSettings(u))
+	if err != nil {
+		return nil, err
+	}
 	var gens []generator
 	for _, name := range u.Generators {
-		g, err := compile(u.Package, mf, root, name)
+		g, err := compile(u.Package, mf, root, name, params)
 		if err != nil {
 			return nil, err
 		}
@@ -165,8 +171,8 @@ func readMetafile(pkg, dir string) (*meta.Metafile, *os.Root, error) {
 	return mf, root, nil
 }
 
-// compile prepares one generator of a metafile.
-func compile(pkg string, mf *meta.Metafile, root *os.Root, name string) (generator, error) {
+// compile prepares one generator of a metafile, with its parameters bound.
+func compile(pkg string, mf *meta.Metafile, root *os.Root, name string, params []param) (generator, error) {
 	var mg *meta.Generator
 	for i := range mf.Generators {
 		if mf.Generators[i].Name == name {
@@ -181,12 +187,13 @@ func compile(pkg string, mf *meta.Metafile, root *os.Root, name string) (generat
 		return generator{}, fmt.Errorf("use %s: no generator %q in its %s (it has: %s)", pkg, name, MetaFile, strings.Join(names, ", "))
 	}
 	step := pkg + ":" + name
-	g := generator{step: step, doc: mg.Doc, needs: mg.Needs, emits: mg.Emits}
+	g := generator{step: step, doc: mg.Doc, needs: mg.Needs, emits: mg.Emits,
+		params: params, vars: paramsObject(params)}
 	var err error
-	if g.units, err = query.Compile(fmt.Sprintf("%s/%s:%d: units", pkg, MetaFile, mg.UnitsLine), mf.Defs, mg.Units); err != nil {
+	if g.units, err = query.Compile(fmt.Sprintf("%s/%s:%d: units", pkg, MetaFile, mg.UnitsLine), mf.Defs, mg.Units, ParamsVar); err != nil {
 		return generator{}, err
 	}
-	if g.out, err = query.Compile(fmt.Sprintf("%s/%s:%d: out", pkg, MetaFile, mg.OutLine), mf.Defs, mg.Out); err != nil {
+	if g.out, err = query.Compile(fmt.Sprintf("%s/%s:%d: out", pkg, MetaFile, mg.OutLine), mf.Defs, mg.Out, ParamsVar); err != nil {
 		return generator{}, err
 	}
 	if mg.HasEmits {

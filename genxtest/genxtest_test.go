@@ -156,3 +156,72 @@ func TestAssertGenerated(t *testing.T) {
 		t.Errorf("got  %q\nwant %q", got, want)
 	}
 }
+
+func TestRenderParams(t *testing.T) {
+	in := genxtest.Input{Path: "testdata/in/a.labels.json"}
+
+	// Render keeps every default.
+	files := genxtest.Render(t, "testdata/params", "show", in)
+	if want := map[string][]byte{"models/zz_models.txt": []byte("package models: a from a \n")}; !reflect.DeepEqual(files, want) {
+		t.Errorf("defaults: got %q, want %q", files, want)
+	}
+
+	// RenderParams sets some; the others keep their defaults. Go values are
+	// read as their JSON encoding, so a []string is an array.
+	files = genxtest.RenderParams(t, "testdata/params", "show",
+		map[string]any{"dir": "internal/db", "tags": []string{"x", "y"}}, in)
+	if want := map[string][]byte{"internal/db/zz_db.txt": []byte("package db: x,y from a \n")}; !reflect.DeepEqual(files, want) {
+		t.Errorf("params: got %q, want %q", files, want)
+	}
+
+	// A null default accepts any type.
+	files = genxtest.RenderParams(t, "testdata/params", "show", map[string]any{"package": "store"}, in)
+	if _, ok := files["models/zz_store.txt"]; !ok {
+		t.Errorf("package: got %q", files)
+	}
+
+	// The same params give the same bytes.
+	again := genxtest.RenderParams(t, "testdata/params", "show",
+		map[string]any{"dir": "internal/db", "tags": []string{"x", "y"}}, in)
+	if !reflect.DeepEqual(again, genxtest.RenderParams(t, "testdata/params", "show",
+		map[string]any{"tags": []string{"x", "y"}, "dir": "internal/db"}, in)) {
+		t.Error("two renders with the same params differ")
+	}
+}
+
+func TestRenderParamsFails(t *testing.T) {
+	in := genxtest.Input{Path: "testdata/in/a.labels.json"}
+	for _, tt := range []struct {
+		name   string
+		dir    string
+		params map[string]any
+		want   string
+	}{
+		{"an unknown parameter", "testdata/params", map[string]any{"colour": "blue"},
+			`genxtest.RenderParams: params.colour: testdata/params/genx.meta.yaml declares no parameter "colour" (it declares: dir, package, tags)`},
+		{"no parameters declared", "testdata/gen", map[string]any{"dir": "db"},
+			`genxtest.RenderParams: params.dir: testdata/gen/genx.meta.yaml declares no parameter "dir" (it declares none)`},
+		{"a wrong type", "testdata/params", map[string]any{"dir": 3},
+			`genxtest.RenderParams: params.dir: must be a string, as its default "models" is (got a number)`},
+		{"null for a string", "testdata/params", map[string]any{"dir": nil},
+			`genxtest.RenderParams: params.dir: must be a string, as its default "models" is (got null)`},
+		{"two problems at once", "testdata/params", map[string]any{"tags": "x", "colour": 1},
+			"genxtest.RenderParams: params.colour: testdata/params/genx.meta.yaml declares no parameter \"colour\" (it declares: dir, package, tags)\n" +
+				`params.tags: must be an array, as its default ["a"] is (got a string)`},
+		{"a value JSON can't encode", "testdata/params", map[string]any{"dir": func() {}},
+			"genxtest.RenderParams: params.dir: json: unsupported type: func()"},
+		{"a query refuses a value", "testdata/params", map[string]any{"dir": "../x"},
+			`genxtest.RenderParams: testdata/params:show: out: "../x/zz_x.txt": must not contain ".."`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := "show"
+			if tt.dir == "testdata/gen" {
+				gen = "list"
+			}
+			got := fails(t, func(tb testing.TB) { genxtest.RenderParams(tb, tt.dir, gen, tt.params, in) })
+			if got != tt.want {
+				t.Errorf("got  %q\nwant %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/epistemer/genx/internal/domain"
 	"github.com/epistemer/genx/internal/query"
@@ -19,8 +20,10 @@ type Input struct {
 
 // Render runs one generator of the metafile in dir on the given domain
 // files, without a manifest, and returns the files it would write, by
-// slash-separated path. It writes nothing. genxtest.Render uses it.
-func Render(ctx context.Context, dir, generator string, inputs []Input) (map[string][]byte, error) {
+// slash-separated path. params sets parameters as a use entry would; the
+// rest keep their defaults. It writes nothing. genxtest's Render and
+// RenderParams use it.
+func Render(ctx context.Context, dir, generator string, params map[string]any, inputs []Input) (map[string][]byte, error) {
 	s := &state{
 		ctx:    ctx,
 		docs:   map[string][]document{},
@@ -31,7 +34,20 @@ func Render(ctx context.Context, dir, generator string, inputs []Input) (map[str
 		return nil, err
 	}
 	defer root.Close()
-	g, err := compile(dir, mf, root, generator)
+	var set []setting
+	for name, v := range params {
+		nv, err := query.Normalize(v)
+		if err != nil {
+			return nil, fmt.Errorf("params.%s: %w", name, err)
+		}
+		set = append(set, setting{name: name, value: nv, where: "params." + name})
+	}
+	sort.Slice(set, func(i, j int) bool { return set[i].name < set[j].name })
+	bound, err := bindParams(filepath.ToSlash(filepath.Join(dir, MetaFile)), mf.Params, set)
+	if err != nil {
+		return nil, err
+	}
+	g, err := compile(dir, mf, root, generator, bound)
 	if err != nil {
 		return nil, err
 	}

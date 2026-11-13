@@ -47,6 +47,27 @@ the same form; `internal/manifest` and `internal/meta` test each one, and
 `internal/yamlx` tests what applies to both files: a broken second document,
 and aliases that expand to too many values.
 
+## Parameters (amendment A4)
+
+| Failure | What genx says | Script |
+|---------|----------------|--------|
+| A metafile's parameter name isn't `[a-z][a-z0-9_]*` | `params.Dir: "Dir" is not a valid parameter name` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A parameter without `doc` | `params.nodoc.doc: required` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A parameter without `default` (null must be written) | `params.nodefault.default: required` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A parameter declared as a value, not `{doc, default}` | `params.flat: must be a mapping` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A `use` entry sets a parameter the package doesn't declare (the message lists those it does) | `example.com/app/gen declares no parameter "colour"` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| …in a package that declares none | `example.com/app/plain declares no parameter "dir"` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A value whose JSON type differs from a non-null default's | `params.dir: must be a string, as its default "models" is` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| …null for a parameter with a non-null default | `must be a string, as its default "" is` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| The map form of `use` without `generators` | `example.com/app/gen.generators: required` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| An unknown field in the map form | `example.com/app/gen.param: unknown field` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| `params` that isn't a mapping | `params: must be a mapping of parameter names to values` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+| A `use` entry that is neither a list nor a mapping | `must be a sequence of generator names, or a mapping` | [params_failures](../internal/e2e/testdata/script/params_failures.txtar) |
+
+All of an entry's parameter problems are reported at once, with the line
+in `genx.yaml`. `genxtest.RenderParams` gives the same messages, located
+as `params.<name>` and naming the metafile instead of the package.
+
 ## Finding generators
 
 | Failure | What genx says | Script |
