@@ -1,0 +1,26 @@
+// Code generated from labels by github.com/epistemer/i18n. DO NOT EDIT.
+
+package {{.package.name}}
+
+import "github.com/epistemer/i18n"
+{{if or .vars .hidden}}
+var (
+{{- range .vars}}
+	{{.var}} = i18n.Key({{printf "%q" .key}}, {{printf "%q" .text}})
+{{- end}}
+{{- range .hidden}}
+	_ = i18n.Key({{printf "%q" .key}}, {{printf "%q" .text}})
+{{- end}}
+)
+{{end}}
+{{- if .paths}}
+// l10n holds every label that has a path.
+var l10n = map[string]i18n.TKer{
+{{- range .paths}}
+	{{printf "%q" .path}}: {{if .var}}{{.var}}{{else}}i18n.Key({{printf "%q" .key}}, {{printf "%q" .text}}){{end}},
+{{- end}}
+}
+
+// L10n returns the label at path, or nil when there is none.
+func L10n(path string) i18n.TKer { return l10n[path] }
+{{end}}
