@@ -1,0 +1,12 @@
+version: 1
+
+generators:
+  labels:
+    doc: the texts of every label by key, and a constant per key
+    needs: [labels/v1]
+    # One unit per package: the labels of all its files, in file order.
+    units: |
+      .["labels/v1"] | group_by(.package.dir)[]
+      | {package: .[0].package, labels: [.[].labels[] | {key, text, var: (.var // null)}]}
+    out: '"\(.package.dir)/zz_\(.package.name)_labels.go"'
+    template: labels.go.tmpl

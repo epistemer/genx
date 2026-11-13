@@ -1,0 +1,11 @@
+version: 1
+
+producers:
+  - name: settings
+    run: [go, run, ./cmd/settings]
+    check: [go, run, ./cmd/settings, -check]
+    emits:
+      - internal/settings/zz_settings.labels.json
+
+use:
+  - github.com/epistemer/genx/examples/labels/gen: [labels]

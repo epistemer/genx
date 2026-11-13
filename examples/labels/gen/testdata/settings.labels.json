@@ -1,0 +1,9 @@
+{
+  "domain": "labels/v1",
+  "producer": "test",
+  "package": {"name": "settings", "dir": "internal/settings"},
+  "labels": [
+    {"key": "settings.server.port", "text": "Listen port", "var": "L10nPort"},
+    {"key": "settings.log.level.debug", "text": "debug"}
+  ]
+}

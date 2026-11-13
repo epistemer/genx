@@ -1,0 +1,17 @@
+// Code generated from labels by github.com/epistemer/genx/examples/labels/gen. DO NOT EDIT.
+
+package {{.package.name}}
+
+// Texts holds every label's text in the source language, by key.
+var Texts = map[string]string{
+{{- range .labels}}
+	{{printf "%q" .key}}: {{printf "%q" .text}},
+{{- end}}
+}
+
+// The keys of the labels that have a name.
+const (
+{{- range .labels}}{{if .var}}
+	{{.var}} = {{printf "%q" .key}}
+{{- end}}{{end}}
+)

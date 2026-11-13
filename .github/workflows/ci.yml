@@ -52,11 +52,26 @@ jobs:
 
       - name: Run staticcheck
         if: matrix.os == 'ubuntu-latest' && matrix.go == '1.27.x'
-        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+        run: |
+          for m in . examples/labels; do
+            (cd "$m" && go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...)
+          done
 
-      - name: Check go.mod is tidy
+      - name: Check every go.mod is tidy
         if: matrix.os == 'ubuntu-latest' && matrix.go == '1.26.x'
-        run: go mod tidy -diff
+        run: |
+          for m in . examples/labels; do
+            (cd "$m" && go mod tidy -diff)
+          done
 
       - name: Run tests with race detector
         run: go test -race ./...
+
+      # The example is its own module. Its tests run genx check on it
+      # (genxtest.AssertGenerated), render its generator against a golden
+      # file, and keep the guides' code blocks equal to its files.
+      - name: Test the example
+        working-directory: examples/labels
+        run: |
+          go vet ./...
+          go test -race ./...
