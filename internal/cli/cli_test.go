@@ -16,7 +16,7 @@ func TestMainExitCodes(t *testing.T) {
 		{args: []string{"help"}, code: 0, stdout: usage},
 		{args: []string{"-h"}, code: 0, stdout: usage},
 		{args: []string{"frobnicate"}, code: 2, stderrPart: `genx: unknown command "frobnicate"`},
-		{args: []string{"check"}, code: 1, stderrPart: "genx check: not implemented yet"},
+		{args: []string{"check", "x"}, code: 2, stderrPart: "genx check: takes no arguments"},
 		{args: []string{"list", "x"}, code: 2, stderrPart: "genx list: takes no arguments"},
 	}
 	for _, tt := range tests {

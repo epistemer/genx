@@ -231,11 +231,11 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M5.1 | The lock: the list of files the driver wrote, per step. Sorted; no hashes, no times | S | Two runs give the same lock |
-| ☐ | M5.2 | Stale output: a file in the previous lock that this run doesn't produce is deleted if it still looks generated; otherwise the run fails and names it. No output ever replaces an existing file that isn't in the lock | M | e2e: dropping a generator from the manifest removes its file; a hand-edited one is kept and reported |
-| ☐ | M5.3 | `genx check`: writes nothing. Producers are checked as S5 decided. Generators render in memory, over an overlay of what earlier generators rendered, and compare. Fails on stale, missing and leftover files, and lists them | L | e2e: each kind of staleness fails `check`, and the tree is unchanged afterwards (compared by hash) |
-| ☐ | M5.4 | The generated-code header, as M1.6 decided, and the test for "still looks generated" | S | Covered by M5.2's scripts |
-| ☐ | M5.5 | `go generate`: document `//go:generate go tool genx` in a file at the module root. `go generate` lists a package's files before it runs, so deleting one in the directive's own package fails | S | An e2e script under `go generate`; the README says where to put the directive |
+| ☑ | M5.1 | The lock: the list of files the driver wrote, per step. Sorted; no hashes, no times | S | Two runs give the same lock |
+| ☑ | M5.2 | Stale output: a file in the previous lock that this run doesn't produce is deleted if it still looks generated; otherwise the run fails and names it. No output ever replaces an existing file that isn't in the lock | M | e2e: dropping a generator from the manifest removes its file; a hand-edited one is kept and reported |
+| ☑ | M5.3 | `genx check`: writes nothing. Producers are checked as S5 decided. Generators render in memory, over an overlay of what earlier generators rendered, and compare. Fails on stale, missing and leftover files, and lists them | L | e2e: each kind of staleness fails `check`, and the tree is unchanged afterwards (compared by hash) |
+| ☑ | M5.4 | The generated-code header, as M1.6 decided, and the test for "still looks generated" | S | Covered by M5.2's scripts |
+| ☑ | M5.5 | `go generate`: document `//go:generate go tool genx` in a file at the module root. `go generate` lists a package's files before it runs, so deleting one in the directive's own package fails | S | An e2e script under `go generate`; the README says where to put the directive |
 
 ---
 

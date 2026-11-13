@@ -31,13 +31,40 @@ type Options struct {
 	Stdout, Stderr io.Writer
 }
 
-// Run runs every step of the manifest at the module root above opts.Dir.
+// Run runs every step of the manifest at the module root above opts.Dir,
+// deletes leftover output, writes what changed, and writes the lock.
 func Run(ctx context.Context, opts Options) error {
+	return execute(ctx, opts, false)
+}
+
+// Check writes nothing. It runs each producer's check command, renders every
+// generator in memory, and fails if any output is stale, missing or
+// leftover, or the lock would change (interface.md §9).
+func Check(ctx context.Context, opts Options) error {
+	return execute(ctx, opts, true)
+}
+
+func execute(ctx context.Context, opts Options, check bool) error {
 	s, m, gens, err := load(ctx, opts)
 	if err != nil {
 		return err
 	}
 	defer s.root.Close()
+	s.check = check
+	err = s.execute(m, gens)
+	if check && err != nil && len(s.problems) > 0 && !s.reported {
+		// What check found first may be why the later step failed.
+		return fmt.Errorf("%w\nThen: %v", s.problemsErr(), err)
+	}
+	return err
+}
+
+func (s *state) execute(m *manifest.Manifest, gens []generator) error {
+	check := s.check
+	prev, err := s.readLock()
+	if err != nil {
+		return err
+	}
 	steps := s.steps(m.Producers, gens)
 	pl, err := plan.New(steps)
 	if err != nil {
@@ -56,11 +83,14 @@ func Run(ctx context.Context, opts Options) error {
 			break
 		}
 		var wrote []domain.Domain
-		if i < len(m.Producers) {
-			wrote, err = s.produce(m.Producers[i])
-		} else {
+		switch {
+		case i >= len(m.Producers):
 			g := gens[i-len(m.Producers)]
 			wrote, err = g.writes(), s.generate(g)
+		case check:
+			wrote, err = s.checkProducer(m.Producers[i])
+		default:
+			wrote, err = s.produce(m.Producers[i])
 		}
 		if err != nil {
 			return err
@@ -69,7 +99,10 @@ func Run(ctx context.Context, opts Options) error {
 			return err
 		}
 	}
-	return s.write()
+	if check {
+		return s.compare(prev)
+	}
+	return s.write(prev)
 }
 
 // mismatchError names the files behind a major-version mismatch
@@ -192,6 +225,12 @@ type state struct {
 	owners map[string]string
 	// outputs are the generators' files, in the order they were rendered.
 	outputs []output
+	// check is set for genx check, which writes nothing.
+	check bool
+	// problems are what genx check found, in the order it found them;
+	// reported is set once they make up the verdict.
+	problems []string
+	reported bool
 }
 
 // document is one domain file's decoded value.

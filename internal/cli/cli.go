@@ -38,16 +38,15 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		}
 		return do(run.List, stdout, stderr)
 	case "check":
-		return notYet(stderr, "genx "+args[0])
+		if len(args) > 1 {
+			fmt.Fprintf(stderr, "genx check: takes no arguments\n\n%s", usage)
+			return 2
+		}
+		return do(run.Check, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "genx: unknown command %q\n\n%s", args[0], usage)
 		return 2
 	}
-}
-
-func notYet(stderr io.Writer, cmd string) int {
-	fmt.Fprintf(stderr, "%s: not implemented yet\n", cmd)
-	return 1
 }
 
 // do runs a command in the working directory and turns its error into a

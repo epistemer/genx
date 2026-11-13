@@ -21,33 +21,75 @@ import (
 // produce runs a producer's command, then reads every file it declared. It
 // returns the domains the producer wrote.
 func (s *state) produce(p manifest.Producer) ([]domain.Domain, error) {
-	step := "producer " + p.Name
-	ctx, cancel := context.WithTimeout(s.ctx, p.Timeout)
-	defer cancel()
+	if err := s.command(p, p.Run); err != nil {
+		return nil, err
+	}
+	return s.readEmits(p)
+}
 
-	cmd := exec.CommandContext(ctx, p.Run[0], p.Run[1:]...)
-	cmd.Dir = filepath.Join(s.rootDir, filepath.FromSlash(p.Dir))
-	var mu sync.Mutex
-	cmd.Stdout = &prefixWriter{w: s.opts.Stdout, prefix: p.Name + ": ", mu: &mu}
-	cmd.Stderr = &prefixWriter{w: s.opts.Stderr, prefix: p.Name + ": ", mu: &mu}
-	err := cmd.Run()
-	cmd.Stdout.(*prefixWriter).flush()
-	cmd.Stderr.(*prefixWriter).flush()
-	if s.ctx.Err() != nil {
-		return nil, s.ctx.Err()
+// checkProducer is produce for genx check: it runs the producer's check
+// command, if it has one, and records a failure as a problem; a producer
+// without one is trusted, and says so. Either way its declared files must
+// be there for the generators after it.
+func (s *state) checkProducer(p manifest.Producer) ([]domain.Domain, error) {
+	if len(p.Check) == 0 {
+		fmt.Fprintf(s.opts.Stdout, "%s: not checked (no check command)\n", p.Name)
+	} else if err := s.command(p, p.Check); err != nil {
+		if s.ctx.Err() != nil {
+			return nil, err
+		}
+		s.problem("producer  %s: %s", p.Name, strings.TrimPrefix(err.Error(), "producer "+p.Name+": "))
 	}
-	if ctx.Err() == context.DeadlineExceeded {
-		return nil, fmt.Errorf("%s: timed out after %s", step, p.Timeout)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s: %w", step, strings.Join(p.Run, " "), err)
-	}
-
+	// A file that's missing or broken is a problem to report with the
+	// rest; the steps after it read what's there.
 	var wrote []domain.Domain
 	for _, e := range p.Emits {
 		v, d, err := s.readDomainFile(e)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", step, err)
+			s.problem("producer  %s: %v", p.Name, err)
+			continue
+		}
+		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
+		wrote = appendDomain(wrote, d)
+	}
+	return wrote, nil
+}
+
+// command runs argv for producer p in its directory, under its timeout,
+// with its output prefixed by its name.
+func (s *state) command(p manifest.Producer, argv []string) error {
+	step := "producer " + p.Name
+	ctx, cancel := context.WithTimeout(s.ctx, p.Timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Dir = filepath.Join(s.rootDir, filepath.FromSlash(p.Dir))
+	var mu sync.Mutex
+	stdout := &prefixWriter{w: s.opts.Stdout, prefix: p.Name + ": ", mu: &mu}
+	stderr := &prefixWriter{w: s.opts.Stderr, prefix: p.Name + ": ", mu: &mu}
+	cmd.Stdout, cmd.Stderr = stdout, stderr
+	err := cmd.Run()
+	stdout.flush()
+	stderr.flush()
+	if s.ctx.Err() != nil {
+		return s.ctx.Err()
+	}
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("%s: timed out after %s", step, p.Timeout)
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %s: %w", step, strings.Join(argv, " "), err)
+	}
+	return nil
+}
+
+// readEmits reads every file a producer declared, and returns their domains.
+func (s *state) readEmits(p manifest.Producer) ([]domain.Domain, error) {
+	var wrote []domain.Domain
+	for _, e := range p.Emits {
+		v, d, err := s.readDomainFile(e)
+		if err != nil {
+			return nil, fmt.Errorf("producer %s: %w", p.Name, err)
 		}
 		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
 		wrote = appendDomain(wrote, d)
