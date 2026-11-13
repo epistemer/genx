@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/epistemer/genx/internal/domain"
+	"github.com/epistemer/genx/internal/labels"
 	"github.com/epistemer/genx/internal/manifest"
 	"github.com/epistemer/genx/internal/paths"
 	"github.com/epistemer/genx/internal/query"
@@ -49,7 +50,10 @@ func (s *state) checkProducer(p manifest.Producer) ([]domain.Domain, error) {
 			s.problem("producer  %s: %v", p.Name, err)
 			continue
 		}
-		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
+		if err := s.record(d, e.Path, v); err != nil {
+			s.problem("producer  %s: %v", p.Name, err)
+			continue
+		}
 		wrote = appendDomain(wrote, d)
 	}
 	return wrote, nil
@@ -91,10 +95,23 @@ func (s *state) readEmits(p manifest.Producer) ([]domain.Domain, error) {
 		if err != nil {
 			return nil, fmt.Errorf("producer %s: %w", p.Name, err)
 		}
-		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
+		if err := s.record(d, e.Path, v); err != nil {
+			return nil, fmt.Errorf("producer %s: %w", p.Name, err)
+		}
 		wrote = appendDomain(wrote, d)
 	}
 	return wrote, nil
+}
+
+// record validates a domain document and, if valid, records it for later steps.
+func (s *state) record(d domain.Domain, path string, v any) error {
+	if d == (domain.Domain{Name: "labels", Major: 1}) {
+		if err := labels.Check(v); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
+	s.docs[d.String()] = append(s.docs[d.String()], document{path: path, value: v})
+	return nil
 }
 
 // readDomainFile decodes a declared file and works out its domain: the one

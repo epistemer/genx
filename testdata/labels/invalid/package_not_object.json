@@ -1,0 +1,6 @@
+{
+  "domain": "labels/v1",
+  "producer": "test",
+  "package": "not-an-object",
+  "labels": []
+}

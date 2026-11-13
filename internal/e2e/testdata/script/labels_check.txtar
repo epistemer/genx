@@ -1,0 +1,37 @@
+# A producer writes an invalid labels file: genx fails, naming the producer,
+# the file, and the problem.
+! exec genx
+cmp stderr want/run.txt
+
+# genx check reports the same invalid labels file as a problem.
+! exec genx check
+cmp stderr want/check.txt
+
+-- genx.yaml --
+version: 1
+producers:
+  - name: settings
+    run: [produce, data/settings.labels.json, internal/settings/zz_settings.labels.json]
+    emits:
+      - internal/settings/zz_settings.labels.json
+-- data/settings.labels.json --
+{
+  "domain": "labels/v1",
+  "producer": "settings",
+  "package": {
+    "name": "settings",
+    "dir": "internal/settings"
+  },
+  "labels": [
+    {
+      "key": "settings.port",
+      "text": "Port",
+      "var": "func"
+    }
+  ]
+}
+-- want/run.txt --
+genx: producer settings: internal/settings/zz_settings.labels.json: labels[0].var: "func" is a Go keyword
+-- want/check.txt --
+genx: check found 1 problem; run genx:
+  producer  settings: internal/settings/zz_settings.labels.json: labels[0].var: "func" is a Go keyword

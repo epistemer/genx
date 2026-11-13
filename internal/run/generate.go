@@ -117,7 +117,9 @@ func (s *state) emit(g generator, p string, unit any) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %s: %w", g.step, p, err)
 	}
-	s.docs[d.String()] = append(s.docs[d.String()], document{path: p, value: v})
+	if err := s.record(d, p, v); err != nil {
+		return nil, fmt.Errorf("%s: %w", g.step, err)
+	}
 	return data, nil
 }
 

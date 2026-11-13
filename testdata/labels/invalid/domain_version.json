@@ -1,0 +1,9 @@
+{
+  "domain": "labels/v2",
+  "producer": "test",
+  "package": {
+    "name": "pkg",
+    "dir": "pkg"
+  },
+  "labels": []
+}
