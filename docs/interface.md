@@ -300,9 +300,27 @@ ADR 0001 §4:
 
 Parameters for a generator in `use`; `meta` on labels; producers described
 by their modules; `genx init` and `genx explain`; parallel steps and caching;
-a watch mode. The roadmap's backlog orders them. `genxtest`'s API comes back
-for review with M7.3.
+a watch mode. The roadmap's backlog orders them.
 
 ## 13. Amendments
 
-None yet.
+### A1. `genxtest` (2026-11-13, M7.3, decided by epistemer)
+
+§12 left `genxtest`'s API for review. epistemer kept it as proposed:
+
+```go
+// AssertGenerated fails t when genx check would fail in the module that
+// holds the test's working directory. It writes nothing.
+func AssertGenerated(t testing.TB)
+
+// Input is a domain file for Render; Domain only for a foreign file.
+type Input struct{ Path, Domain string }
+
+// Render runs one generator of the metafile in dir on the inputs, with no
+// manifest and no producers, and returns the files it would write by
+// slash-separated path. Any error genx would report fails t.
+func Render(t testing.TB, dir, generator string, inputs ...Input) map[string][]byte
+```
+
+A way to test a generator's failures (`RenderErr`, from review 0008) was
+considered and left out.
