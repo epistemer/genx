@@ -22,11 +22,20 @@ const MetaFile = "genx.meta.yaml"
 // generator is a switched-on generator, compiled and ready to run.
 type generator struct {
 	step     string // "<package>:<name>"
+	doc      string
 	needs    []domain.Domain
 	units    *query.Query
 	out      *query.Query
 	template *render.Template // nil when the generator emits a domain
 	emits    domain.Domain
+}
+
+// writes is the domain a generator writes, if it emits one.
+func (g generator) writes() []domain.Domain {
+	if g.template != nil {
+		return nil
+	}
+	return []domain.Domain{g.emits}
 }
 
 // resolve finds the directory of every package in use with one go list
@@ -167,7 +176,7 @@ func compile(pkg string, mf *meta.Metafile, root *os.Root, name string) (generat
 		return generator{}, fmt.Errorf("use %s: no generator %q in its %s (it has: %s)", pkg, name, MetaFile, strings.Join(names, ", "))
 	}
 	step := pkg + ":" + name
-	g := generator{step: step, needs: mg.Needs, emits: mg.Emits}
+	g := generator{step: step, doc: mg.Doc, needs: mg.Needs, emits: mg.Emits}
 	var err error
 	if g.units, err = query.Compile(fmt.Sprintf("%s/%s:%d: units", pkg, MetaFile, mg.UnitsLine), mf.Defs, mg.Units); err != nil {
 		return generator{}, err
@@ -186,4 +195,12 @@ func compile(pkg string, mf *meta.Metafile, root *os.Root, name string) (generat
 		return generator{}, fmt.Errorf("%s: %w", step, err)
 	}
 	return g, nil
+}
+
+func joinDomains(ds []domain.Domain) string {
+	var parts []string
+	for _, d := range ds {
+		parts = append(parts, d.String())
+	}
+	return strings.Join(parts, ", ")
 }
