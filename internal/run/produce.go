@@ -38,7 +38,7 @@ func (s *state) checkProducer(p manifest.Producer) ([]domain.Domain, error) {
 		if s.ctx.Err() != nil {
 			return nil, err
 		}
-		s.problem("producer  %s", err)
+		s.problem("producer  %s: %s", p.Name, strings.TrimPrefix(err.Error(), "producer "+p.Name+": "))
 	}
 	return s.readEmits(p)
 }

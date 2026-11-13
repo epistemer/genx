@@ -121,4 +121,4 @@ genx: check found 2 problems; run genx:
 -- want/producer.txt --
 cfg: failing: cfg.json is stale
 genx: check found 1 problem; run genx:
-  producer  producer cfg: fail cfg.json is stale: exit status 3
+  producer  cfg: fail cfg.json is stale: exit status 3
