@@ -164,10 +164,7 @@ func extractLine(err error) int {
 
 func cleanYAMLError(err error) string {
 	s := err.Error()
-	const prefix = "yaml: "
-	if strings.HasPrefix(s, prefix) {
-		s = s[len(prefix):]
-	}
+	s = strings.TrimPrefix(s, "yaml: ")
 	if idx := strings.Index(s, ": "); idx != -1 && strings.HasPrefix(s, "line ") {
 		s = s[idx+2:]
 	}
