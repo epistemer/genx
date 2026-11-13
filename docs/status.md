@@ -43,8 +43,13 @@ taken for you, what's next, and what's waiting on you. The terms are in
   - The timings don't call for parallel steps or caching, so backlog item
     8 stays where it is.
 - **Next:** the backlog's first item, neozp's models package on sqlc. It is
-  the second user the formats need before `v1.0.0`, and a new package, so
-  it starts when you say which repository it goes in.
+  the second user the formats need before `v1.0.0`. On 2026-11-14 you
+  created [epistemer/models](https://github.com/epistemer/models) and I
+  prepared it for another session: its `docs/brief.md` holds what genx's
+  work established, and spike S4's generators, checked again with `v0.1.0`.
+  Its first open question comes back here: a generator can't be told an
+  app's Go package or table prefix, which is backlog item "parameters for
+  a generator in `use`" (interface §12).
 - **Waiting on you:** nothing. `v1.0.0` is yours to call, after the models
   package has used the formats in a real app.
 
