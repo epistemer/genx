@@ -38,11 +38,17 @@ func (s *state) readLock() (lock, error) {
 			continue
 		}
 		p, step, ok := strings.Cut(line, " ")
-		if !ok || step == "" || strings.Contains(step, " ") {
+		pkg, gen, colon := strings.Cut(step, ":")
+		if !ok || !colon || pkg == "" || gen == "" || strings.ContainsAny(step, " \t") || strings.Contains(gen, ":") {
 			return l, fmt.Errorf("%s:%d: want \"<path> <package>:<generator>\", got %q", LockFile, n+1, line)
 		}
-		if _, err := paths.Out(p); err != nil {
+		if clean, err := paths.Out(p); err != nil {
 			return l, fmt.Errorf("%s:%d: %w", LockFile, n+1, err)
+		} else if clean != p {
+			return l, fmt.Errorf("%s:%d: %q isn't clean (use %q)", LockFile, n+1, p, clean)
+		}
+		if l.has(p) {
+			return l, fmt.Errorf("%s:%d: %s is listed twice", LockFile, n+1, p)
 		}
 		l.steps[p] = step
 	}

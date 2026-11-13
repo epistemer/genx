@@ -52,23 +52,28 @@ func (s *state) write(prev lock) error {
 }
 
 // preflight returns the leftovers to delete: files in the previous lock
-// that this run doesn't produce, still on disk. It fails, naming every
-// file, when an output would replace a file genx didn't write, or a file
-// genx wrote has lost its generated-code header.
+// that this run doesn't produce, still on disk under that exact name. It
+// fails, naming every file, when an output would replace a file genx didn't
+// write, or a file genx wrote has lost its generated-code header.
 func (s *state) preflight(prev lock) ([]string, error) {
 	var problems []string
 	produced := map[string]bool{}
 	for _, o := range s.outputs {
 		produced[o.path] = true
-		b, err := s.root.ReadFile(filepath.FromSlash(o.path))
+		actual, b, err := s.onDisk(o.path)
 		if err != nil {
-			continue // nothing there to replace
+			return nil, fmt.Errorf("%s: writing %s: %w", o.step, o.path, err)
 		}
 		switch {
-		case !prev.has(o.path):
-			problems = append(problems, fmt.Sprintf("%s: %s exists and isn't in %s, so genx didn't write it; move it away, then run genx again", o.step, o.path, LockFile))
+		case actual == "":
+			// Nothing there to replace.
+		case bytes.Equal(b, o.data) && actual == o.path:
+			// What genx would write is there already, say after a run
+			// stopped before it wrote the lock.
+		case !prev.has(actual):
+			problems = append(problems, fmt.Sprintf("%s: %s exists and isn't in %s, so genx didn't write it; move it away, then run genx again", o.step, actual, LockFile))
 		case isGo(o.path) && !render.HasHeader(b):
-			problems = append(problems, fmt.Sprintf("%s: %s has lost its generated-code header, so it may hold edits; restore the header or delete the file, then run genx again", o.step, o.path))
+			problems = append(problems, fmt.Sprintf("%s: %s has lost its generated-code header, so it may hold edits; restore the header or delete the file, then run genx again", o.step, actual))
 		}
 	}
 	var leftovers []string
@@ -76,12 +81,14 @@ func (s *state) preflight(prev lock) ([]string, error) {
 		if produced[p] {
 			continue
 		}
-		b, err := s.root.ReadFile(filepath.FromSlash(p))
-		if errors.Is(err, os.ErrNotExist) {
-			continue // gone already; the new lock drops it
-		}
+		actual, b, err := s.onDisk(p)
 		if err != nil {
 			return nil, err
+		}
+		if actual != p {
+			// Gone already, or there only in another case, as an output
+			// whose name changed case: the new lock drops it.
+			continue
 		}
 		if isGo(p) && !render.HasHeader(b) {
 			problems = append(problems, fmt.Sprintf("%s, which %s wrote, is no longer generated, but it has lost its generated-code header, so it may hold edits; delete it or move it, then run genx again", p, prev.steps[p]))
@@ -95,18 +102,58 @@ func (s *state) preflight(prev lock) ([]string, error) {
 	return leftovers, nil
 }
 
+// onDisk finds the file at p as its directory lists it, compared without
+// case, and reads it. The exact name wins over a case variant. It returns
+// "" when there is none.
+func (s *state) onDisk(p string) (string, []byte, error) {
+	dir, base := path.Split(p)
+	f, err := s.root.Open(filepath.FromSlash(path.Clean("./" + dir)))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil, nil
+	}
+	if err != nil {
+		return "", nil, err
+	}
+	entries, err := f.ReadDir(-1)
+	f.Close()
+	if err != nil {
+		return "", nil, err
+	}
+	name := ""
+	for _, e := range entries {
+		if e.Name() == base {
+			name = base
+			break
+		}
+		if name == "" && strings.EqualFold(e.Name(), base) {
+			name = e.Name()
+		}
+	}
+	if name == "" {
+		return "", nil, nil
+	}
+	actual := dir + name
+	b, err := s.root.ReadFile(filepath.FromSlash(actual))
+	if err != nil {
+		return "", nil, err
+	}
+	return actual, b, nil
+}
+
 // compare is genx check's end: every output, leftover and the lock against
 // the disk. It reports every problem, with what to run.
 func (s *state) compare(prev lock) error {
 	produced := map[string]bool{}
 	for _, o := range s.outputs {
 		produced[o.path] = true
-		b, err := s.root.ReadFile(filepath.FromSlash(o.path))
+		actual, b, err := s.onDisk(o.path)
 		switch {
-		case errors.Is(err, os.ErrNotExist):
-			s.problem("missing   %s (%s)", o.path, o.step)
 		case err != nil:
 			return err
+		case actual == "":
+			s.problem("missing   %s (%s)", o.path, o.step)
+		case actual != o.path:
+			s.problem("stale     %s (%s; on disk as %s)", o.path, o.step, actual)
 		case !bytes.Equal(b, o.data):
 			s.problem("stale     %s (%s)", o.path, o.step)
 		}
@@ -115,7 +162,9 @@ func (s *state) compare(prev lock) error {
 		if produced[p] {
 			continue
 		}
-		if _, err := s.root.Stat(filepath.FromSlash(p)); err == nil {
+		if actual, _, err := s.onDisk(p); err != nil {
+			return err
+		} else if actual == p {
 			s.problem("leftover  %s (%s wrote it; nothing does now)", p, prev.steps[p])
 		}
 	}
@@ -126,9 +175,15 @@ func (s *state) compare(prev lock) error {
 			s.problem("stale     %s", LockFile)
 		}
 	}
+	return s.problemsErr()
+}
+
+// problemsErr is genx check's verdict, nil when nothing was found.
+func (s *state) problemsErr() error {
 	if len(s.problems) == 0 {
 		return nil
 	}
+	s.reported = true
 	n := "problems"
 	if len(s.problems) == 1 {
 		n = "problem"

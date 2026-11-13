@@ -40,7 +40,19 @@ func (s *state) checkProducer(p manifest.Producer) ([]domain.Domain, error) {
 		}
 		s.problem("producer  %s: %s", p.Name, strings.TrimPrefix(err.Error(), "producer "+p.Name+": "))
 	}
-	return s.readEmits(p)
+	// A file that's missing or broken is a problem to report with the
+	// rest; the steps after it read what's there.
+	var wrote []domain.Domain
+	for _, e := range p.Emits {
+		v, d, err := s.readDomainFile(e)
+		if err != nil {
+			s.problem("producer  %s: %v", p.Name, err)
+			continue
+		}
+		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
+		wrote = appendDomain(wrote, d)
+	}
+	return wrote, nil
 }
 
 // command runs argv for producer p in its directory, under its timeout,

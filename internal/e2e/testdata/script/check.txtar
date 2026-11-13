@@ -29,6 +29,14 @@ cmp stderr want/leftover.txt
 rm zz_old.go
 exec genx
 
+# A producer's file is missing: check reports it with everything else it
+# finds, here the output it can no longer render the same.
+cp edited.go zz_two.go
+rm cfg.json
+! exec genx check
+cmp stderr want/nocfg.txt
+exec genx
+
 # A producer's input changed: its check command fails, and its output is
 # still read for the generators after it.
 cp manifests/checked.yaml genx.yaml
@@ -118,6 +126,10 @@ genx: check found 1 problem; run genx:
 genx: check found 2 problems; run genx:
   leftover  zz_old.go (example.com/app/gen:old wrote it; nothing does now)
   stale     genx.lock
+-- want/nocfg.txt --
+genx: check found 1 problem; run genx:
+  producer  cfg: cfg.json: declared in emits, but the producer didn't write it
+Then: example.com/app/gen:one needs cfg/v1, which no step writes
 -- want/producer.txt --
 cfg: failing: cfg.json is stale
 genx: check found 1 problem; run genx:

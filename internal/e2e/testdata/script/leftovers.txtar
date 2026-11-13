@@ -33,6 +33,7 @@ stdout '^deleted zz_data.json$'
 # Never replace a file genx didn't write.
 cp manifests/both.yaml genx.yaml
 rm genx.lock
+cp edited.go zz_one.go
 ! exec genx
 cmp stderr want/not-ours.txt
 
@@ -127,6 +128,5 @@ zz_two.go example.com/app/gen:two
 genx: zz_two.go, which example.com/app/gen:two wrote, is no longer generated, but it has lost its generated-code header, so it may hold edits; delete it or move it, then run genx again
 -- want/not-ours.txt --
 genx: example.com/app/gen:one: zz_one.go exists and isn't in genx.lock, so genx didn't write it; move it away, then run genx again
-example.com/app/gen:two: zz_two.go exists and isn't in genx.lock, so genx didn't write it; move it away, then run genx again
 -- want/edited-output.txt --
 genx: example.com/app/gen:one: zz_one.go has lost its generated-code header, so it may hold edits; restore the header or delete the file, then run genx again
