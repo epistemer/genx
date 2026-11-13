@@ -82,7 +82,7 @@ func TestOrder_Table(t *testing.T) {
 		{
 			name:      "empty steps",
 			steps:     []plan.Step{},
-			wantOrder: []int{},
+			wantOrder: nil,
 		},
 		{
 			name: "linear chain",
@@ -151,7 +151,9 @@ func TestOrder_Table(t *testing.T) {
 			steps: []plan.Step{
 				{Name: "self", Needs: []domain.Domain{d("x", 1)}, Writes: []domain.Domain{d("x", 1)}, Known: true},
 			},
-			wantErr: "these steps need each other's domains: self (needs x/v1, written by self)",
+			// A step may read a domain it also writes: it reads what the
+			// other writers wrote. Alone, it reads nothing.
+			wantOrder: []int{0},
 		},
 		{
 			name: "cycle first blocking need and lowest indexed writer chosen",
@@ -175,7 +177,7 @@ func TestOrder_Table(t *testing.T) {
 					Known:  true,
 				},
 			},
-			wantErr: "these steps need each other's domains: s0 (needs d1/v1, written by s1); s1 (needs d0/v1, written by s0); s2 (needs d0/v1, written by s0)",
+			wantErr: "these steps need each other's domains: s0 (needs d1/v1, written by s1); s1 (needs d0/v1, written by s0)",
 		},
 		{
 			name: "missing domain no unknown steps",
@@ -238,7 +240,7 @@ func TestOrder_Table(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := plan.Order(tc.steps)
+			got, err := strictOrder(tc.steps)
 			if tc.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -515,5 +517,87 @@ func TestUnknownProducersWithoutNeedsGoFirst(t *testing.T) {
 	}
 	if fmt.Sprint(order) != "[1 0 2]" {
 		t.Errorf("order = %v, want [1 0 2]", order)
+	}
+}
+
+// strictOrder runs the scheduler as genx run does, each step writing what
+// it declared (an unknown step, nothing).
+func strictOrder(steps []plan.Step) ([]int, error) {
+	p, err := plan.New(steps)
+	if err != nil {
+		return nil, err
+	}
+	var order []int
+	for {
+		i, ok, err := p.Next()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return order, nil
+		}
+		order = append(order, i)
+		var wrote []domain.Domain
+		if steps[i].Known {
+			wrote = steps[i].Writes
+		}
+		if err := p.Done(i, wrote); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// Order, for genx list, reports the order without failing on domains that
+// unknown or not-yet-run producers will write.
+func TestOrderIsLenient(t *testing.T) {
+	steps := []plan.Step{
+		{Name: "gen", Needs: []domain.Domain{d("labels", 1)}, Known: true},
+		{Name: "producer settings"},
+	}
+	got, err := plan.Order(steps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []int{1, 0}) {
+		t.Fatalf("Order() = %v, want [1 0]", got)
+	}
+}
+
+// A guessed write orders steps, but a stale guess raises no error: the
+// producer runs and writes the new major.
+func TestPeekedWritesAreGuesses(t *testing.T) {
+	steps := []plan.Step{
+		{Name: "gen", Needs: []domain.Domain{d("labels", 2)}, Known: true},
+		{Name: "producer settings", Writes: []domain.Domain{d("labels", 1)}, Known: true, Peeked: true},
+	}
+	p, err := plan.New(steps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, _, err := p.Next()
+	if err != nil || i != 1 {
+		t.Fatalf("Next() = %d, %v; want 1, nil", i, err)
+	}
+	if err := p.Done(1, []domain.Domain{d("labels", 2)}); err != nil {
+		t.Fatal(err)
+	}
+	i, _, err = p.Next()
+	if err != nil || i != 0 {
+		t.Fatalf("Next() = %d, %v; want 0, nil", i, err)
+	}
+}
+
+// A need that nothing turns out to write fails at the end, even when an
+// unknown producer let the step run.
+func TestNeedNeverWrittenFailsAtTheEnd(t *testing.T) {
+	steps := []plan.Step{
+		{Name: "producer other", Needs: []domain.Domain{d("x", 1)}},
+		{Name: "gen", Needs: []domain.Domain{d("labels", 1)}, Known: true},
+		{Name: "producer x", Writes: []domain.Domain{d("x", 1)}, Known: true},
+	}
+	_, err := strictOrder(steps)
+	want := "gen needs labels/v1, which no step writes"
+	if err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %q", err, want)
 	}
 }

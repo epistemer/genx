@@ -188,6 +188,9 @@ func (s *state) steps(producers []manifest.Producer, gens []generator) []plan.St
 				st.Known = false
 				continue
 			}
+			// A file a previous run left may be stale; the manifest's
+			// domain for a foreign file is not.
+			st.Peeked = st.Peeked || !e.Foreign
 			st.Writes = appendDomain(st.Writes, d)
 		}
 		steps = append(steps, st)
