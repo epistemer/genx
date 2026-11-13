@@ -18,8 +18,9 @@ import (
 	"github.com/epistemer/genx/internal/query"
 )
 
-// produce runs a producer's command, then reads every file it declared.
-func (s *state) produce(p manifest.Producer) error {
+// produce runs a producer's command, then reads every file it declared. It
+// returns the domains the producer wrote.
+func (s *state) produce(p manifest.Producer) ([]domain.Domain, error) {
 	step := "producer " + p.Name
 	ctx, cancel := context.WithTimeout(s.ctx, p.Timeout)
 	defer cancel()
@@ -33,23 +34,25 @@ func (s *state) produce(p manifest.Producer) error {
 	cmd.Stdout.(*prefixWriter).flush()
 	cmd.Stderr.(*prefixWriter).flush()
 	if s.ctx.Err() != nil {
-		return s.ctx.Err()
+		return nil, s.ctx.Err()
 	}
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("%s: timed out after %s", step, p.Timeout)
+		return nil, fmt.Errorf("%s: timed out after %s", step, p.Timeout)
 	}
 	if err != nil {
-		return fmt.Errorf("%s: %s: %w", step, strings.Join(p.Run, " "), err)
+		return nil, fmt.Errorf("%s: %s: %w", step, strings.Join(p.Run, " "), err)
 	}
 
+	var wrote []domain.Domain
 	for _, e := range p.Emits {
 		v, d, err := s.readDomainFile(e)
 		if err != nil {
-			return fmt.Errorf("%s: %w", step, err)
+			return nil, fmt.Errorf("%s: %w", step, err)
 		}
 		s.docs[d.String()] = append(s.docs[d.String()], document{path: e.Path, value: v})
+		wrote = appendDomain(wrote, d)
 	}
-	return nil
+	return wrote, nil
 }
 
 // readDomainFile decodes a declared file and works out its domain: the one

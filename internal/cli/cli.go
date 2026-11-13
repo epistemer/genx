@@ -25,21 +25,19 @@ Usage:
 // process exit code: 0 on success, 1 when a command fails, 2 on bad usage.
 func Main(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		dir, err := os.Getwd()
-		if err == nil {
-			err = run.Run(context.Background(), run.Options{Dir: dir, Stdout: stdout, Stderr: stderr})
-		}
-		if err != nil {
-			fmt.Fprintf(stderr, "genx: %v\n", err)
-			return 1
-		}
-		return 0
+		return do(run.Run, stdout, stderr)
 	}
 	switch args[0] {
 	case "help", "-h", "-help", "--help":
 		fmt.Fprint(stdout, usage)
 		return 0
-	case "check", "list":
+	case "list":
+		if len(args) > 1 {
+			fmt.Fprintf(stderr, "genx list: takes no arguments\n\n%s", usage)
+			return 2
+		}
+		return do(run.List, stdout, stderr)
+	case "check":
 		return notYet(stderr, "genx "+args[0])
 	default:
 		fmt.Fprintf(stderr, "genx: unknown command %q\n\n%s", args[0], usage)
@@ -50,4 +48,18 @@ func Main(args []string, stdout, stderr io.Writer) int {
 func notYet(stderr io.Writer, cmd string) int {
 	fmt.Fprintf(stderr, "%s: not implemented yet\n", cmd)
 	return 1
+}
+
+// do runs a command in the working directory and turns its error into a
+// message and exit code 1.
+func do(cmd func(context.Context, run.Options) error, stdout, stderr io.Writer) int {
+	dir, err := os.Getwd()
+	if err == nil {
+		err = cmd(context.Background(), run.Options{Dir: dir, Stdout: stdout, Stderr: stderr})
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "genx: %v\n", err)
+		return 1
+	}
+	return 0
 }

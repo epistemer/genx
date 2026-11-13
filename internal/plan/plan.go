@@ -46,7 +46,8 @@ func New(steps []Step) (*Plan, error) {
 }
 
 // Next returns the index of the next step to run: the lowest-indexed pending
-// step none of whose needed domains has a pending writer that is Known.
+// step none of whose needed domains has a pending writer that is Known, and,
+// if it needs anything, with no pending unknown step that needs nothing.
 // ok is false when no step is pending. An error means the remaining steps
 // can't run (a cycle) or the chosen step needs a domain nobody writes or
 // writes in another major version (checked when the step is chosen; see below).
@@ -154,6 +155,18 @@ func (p *Plan) isReady(cand int) bool {
 	for _, d := range p.steps[cand].Needs {
 		if p.hasPendingKnownWriter(d) {
 			return false
+		}
+	}
+	// A step that needs anything also waits for every pending step whose
+	// writes are unknown and that needs nothing itself: such a step can
+	// always run, and it may write what this one needs. (One that has
+	// needs of its own doesn't hold others back, so it can't cause a
+	// deadlock; Done catches it if it turns out to write a needed domain.)
+	if len(p.steps[cand].Needs) > 0 {
+		for w := range p.steps {
+			if w != cand && !p.finished[w] && !p.steps[w].Known && len(p.steps[w].Needs) == 0 {
+				return false
+			}
 		}
 	}
 	return true

@@ -11,18 +11,51 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
 
 	"github.com/epistemer/genx/internal/cli"
+	"github.com/epistemer/genx/internal/golden"
 )
 
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
 		"genx":    func() { os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr)) },
 		"produce": produce,
+		"consume": consume,
+		"fail":    fail,
+		"sleepy":  sleepy,
 	})
+}
+
+// consume is a producer that reads a domain file: consume in out writes
+// {"domain": "consumed/v1", "from": <in>} to out, and fails if in is missing.
+func consume() {
+	b, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	out := fmt.Sprintf("{\"domain\": \"consumed/v1\", \"from\": %s}\n", b)
+	if err := os.WriteFile(os.Args[2], []byte(out), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// fail is a producer that fails: it prints its arguments to stderr.
+func fail() {
+	fmt.Fprintln(os.Stderr, "failing:", strings.Join(os.Args[1:], " "))
+	os.Exit(3)
+}
+
+// sleepy is a producer that sleeps for a duration: sleepy 10s.
+func sleepy() {
+	d, _ := time.ParseDuration(os.Args[1])
+	time.Sleep(d)
 }
 
 // produce is a stand-in producer for scripts: produce src dst copies src to
@@ -33,6 +66,9 @@ func produce() {
 		os.Exit(2)
 	}
 	b, err := os.ReadFile(os.Args[1])
+	if err == nil {
+		err = os.MkdirAll(filepath.Dir(os.Args[2]), 0o755)
+	}
 	if err == nil {
 		err = os.WriteFile(os.Args[2], b, 0o644)
 	}
@@ -76,6 +112,9 @@ func TestScript(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
 		RequireExplicitExec: true,
+		// go test ./internal/e2e -update rewrites the files scripts cmp
+		// against; read the diff before committing it.
+		UpdateScripts: golden.Update(),
 		Setup: func(e *testscript.Env) error {
 			for _, k := range hostPassthroughEnvKeys {
 				if v := os.Getenv(k); v != "" {

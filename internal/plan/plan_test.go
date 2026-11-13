@@ -1,6 +1,7 @@
 package plan_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -299,39 +300,44 @@ func TestPlan_StepByStep(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown producer pending allows dependent generator to run then Done catches it", func(t *testing.T) {
+	// Only an unknown producer that has needs of its own can turn out late:
+	// one without needs runs before any step that needs something.
+	t.Run("unknown producer with needs is caught by Done when late", func(t *testing.T) {
 		steps := []plan.Step{
 			{Name: "github.com/epistemer/i18n:labels", Needs: []domain.Domain{d("labels", 1)}, Known: true},
-			{Name: "producer settings", Known: false},
+			{Name: "producer consumer", Needs: []domain.Domain{d("other", 1)}},
+			{Name: "producer base", Writes: []domain.Domain{d("other", 1)}, Known: true},
 		}
 		p, err := plan.New(steps)
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
 		}
-
-		// Generator runs because unknown producer is pending
-		i, ok, err := p.Next()
-		if err != nil || !ok || i != 0 {
-			t.Fatalf("Next() 1 = (%d, %v, %v), want (0, true, nil)", i, ok, err)
+		var order []int
+		var doneErr error
+		for doneErr == nil {
+			i, ok, err := p.Next()
+			if err != nil {
+				t.Fatalf("Next() failed: %v", err)
+			}
+			if !ok {
+				break
+			}
+			order = append(order, i)
+			var wrote []domain.Domain
+			switch i {
+			case 1:
+				wrote = []domain.Domain{d("labels", 1)}
+			case 2:
+				wrote = []domain.Domain{d("other", 1)}
+			}
+			doneErr = p.Done(i, wrote)
 		}
-		if err := p.Done(0, nil); err != nil {
-			t.Fatalf("Done(0) failed: %v", err)
+		if !reflect.DeepEqual(order, []int{0, 2, 1}) {
+			t.Fatalf("order = %v, want [0 2 1]", order)
 		}
-
-		// Now producer runs
-		i, ok, err = p.Next()
-		if err != nil || !ok || i != 1 {
-			t.Fatalf("Next() 2 = (%d, %v, %v), want (1, true, nil)", i, ok, err)
-		}
-
-		// Producer wrote labels/v1, which step 0 needed!
-		wantErr := "github.com/epistemer/i18n:labels needed labels/v1, but ran before producer settings, which writes it; run genx again: the second run reads the domain from the file"
-		err = p.Done(1, []domain.Domain{d("labels", 1)})
-		if err == nil {
-			t.Fatalf("expected error %q, got nil", wantErr)
-		}
-		if err.Error() != wantErr {
-			t.Fatalf("Done(1) error = %q, want %q", err.Error(), wantErr)
+		want := "github.com/epistemer/i18n:labels needed labels/v1, but ran before producer consumer, which writes it; run genx again: the second run reads the domain from the file"
+		if doneErr == nil || doneErr.Error() != want {
+			t.Fatalf("Done error = %v, want %q", doneErr, want)
 		}
 	})
 
@@ -339,45 +345,38 @@ func TestPlan_StepByStep(t *testing.T) {
 		steps := []plan.Step{
 			{Name: "gen1", Needs: []domain.Domain{d("labels", 1)}, Known: true},
 			{Name: "gen2", Needs: []domain.Domain{d("labels", 1)}, Known: true},
-			{Name: "prod", Known: false},
+			{Name: "prod", Needs: []domain.Domain{d("other", 1)}},
+			{Name: "base", Writes: []domain.Domain{d("other", 1)}, Known: true},
 		}
 		p, err := plan.New(steps)
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
 		}
-
-		// Both gen1 and gen2 run while prod is pending unknown
+		for _, want := range []int{0, 1, 3} {
+			i, _, err := p.Next()
+			if err != nil || i != want {
+				t.Fatalf("Next() = %d, %v; want %d", i, err, want)
+			}
+			var wrote []domain.Domain
+			if i == 3 {
+				wrote = []domain.Domain{d("other", 1)}
+			}
+			if err := p.Done(i, wrote); err != nil {
+				t.Fatal(err)
+			}
+		}
 		i, _, err := p.Next()
-		if err != nil || i != 0 {
-			t.Fatalf("Next() = %d, want 0", i)
-		}
-		_ = p.Done(0, nil)
-
-		i, _, err = p.Next()
-		if err != nil || i != 1 {
-			t.Fatalf("Next() = %d, want 1", i)
-		}
-		_ = p.Done(1, nil)
-
-		// Now prod runs
-		i, _, err = p.Next()
 		if err != nil || i != 2 {
-			t.Fatalf("Next() = %d, want 2", i)
+			t.Fatalf("Next() = %d, %v; want 2", i, err)
 		}
-
-		// Prod writes labels/v1. Both gen1 and gen2 needed it.
-		// Error must name gen1 (first such finished step by index).
 		wantErr := "gen1 needed labels/v1, but ran before prod, which writes it; run genx again: the second run reads the domain from the file"
 		err = p.Done(2, []domain.Domain{d("labels", 1)})
-		if err == nil {
-			t.Fatalf("expected error %q, got nil", wantErr)
-		}
-		if err.Error() != wantErr {
-			t.Fatalf("Done(2) error = %q, want %q", err.Error(), wantErr)
+		if err == nil || err.Error() != wantErr {
+			t.Fatalf("Done(2) error = %v, want %q", err, wantErr)
 		}
 	})
 
-	t.Run("unknown producer writes nothing anyone needs is fine", func(t *testing.T) {
+	t.Run("unknown producer without needs runs first; if it writes nothing needed, the need is missing", func(t *testing.T) {
 		steps := []plan.Step{
 			{Name: "github.com/epistemer/i18n:labels", Needs: []domain.Domain{d("labels", 1)}, Known: true},
 			{Name: "producer settings", Known: false},
@@ -386,27 +385,17 @@ func TestPlan_StepByStep(t *testing.T) {
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
 		}
-
 		i, ok, err := p.Next()
-		if err != nil || !ok || i != 0 {
-			t.Fatalf("Next() 1 = (%d, %v, %v), want (0, true, nil)", i, ok, err)
-		}
-		if err := p.Done(0, nil); err != nil {
-			t.Fatalf("Done(0) failed: %v", err)
-		}
-
-		i, ok, err = p.Next()
 		if err != nil || !ok || i != 1 {
-			t.Fatalf("Next() 2 = (%d, %v, %v), want (1, true, nil)", i, ok, err)
+			t.Fatalf("Next() 1 = (%d, %v, %v), want (1, true, nil)", i, ok, err)
 		}
-		// Producer writes nothing or writes an unrelated domain
 		if err := p.Done(1, []domain.Domain{d("other", 1)}); err != nil {
 			t.Fatalf("Done(1) unexpected error: %v", err)
 		}
-
-		_, ok, err = p.Next()
-		if err != nil || ok {
-			t.Fatalf("Next() end = (_, %v, %v), want (false, nil)", ok, err)
+		_, _, err = p.Next()
+		want := "github.com/epistemer/i18n:labels needs labels/v1, which no step writes"
+		if err == nil || err.Error() != want {
+			t.Fatalf("Next() 2 error = %v, want %q", err, want)
 		}
 	})
 
@@ -491,4 +480,40 @@ func TestPlan_StepByStep(t *testing.T) {
 			t.Fatal("Done(0) already finished expected error, got nil")
 		}
 	})
+}
+
+// On a first run no producer's files exist yet. A producer that needs a
+// domain must still wait for producers that need nothing.
+func TestUnknownProducersWithoutNeedsGoFirst(t *testing.T) {
+	labels := domain.Domain{Name: "labels", Major: 1}
+	steps := []plan.Step{
+		{Name: "producer consumer", Needs: []domain.Domain{labels}},
+		{Name: "producer settings"},
+		{Name: "gen:labels", Needs: []domain.Domain{labels}, Known: true},
+	}
+	p, err := plan.New(steps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []int
+	for {
+		i, ok, err := p.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			break
+		}
+		order = append(order, i)
+		var wrote []domain.Domain
+		if i == 1 {
+			wrote = []domain.Domain{labels}
+		}
+		if err := p.Done(i, wrote); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fmt.Sprint(order) != "[1 0 2]" {
+		t.Errorf("order = %v, want [1 0 2]", order)
+	}
 }

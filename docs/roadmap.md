@@ -206,12 +206,12 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M3.1 | Inputs: every file of each needed domain, ordered by path, in an object keyed by domain, whether a generator needs one domain or several. JSON and YAML | M | e2e with two files of one domain and with two domains |
-| ☐ | M3.2 | `units`, `vars` and `out`: each output of the units query is one render; vars are evaluated per unit. An `out` path must follow M1.6's rules on every OS (slash-separated, relative, no `..`, no `\`, `:` or reserved Windows names), stay out of dot-directories, `go.mod`, `go.sum`, `go.work`, the manifest and the lock, and belong to one generator only, compared without case. Every unit renders before anything is written. Writes and deletes go through `os.Root`, so a symlink can't lead outside the module | M | An e2e script for each refusal, naming the generator and the path; one with a symlink |
-| ☐ | M3.3 | A generator that writes a domain file, for turning a foreign file into a domain. It declares `emits`, and genx encodes its query's result as JSON | S | e2e: foreign file → domain file → second generator → Go, in `use` order until M4.1 orders it |
-| ☐ | M3.4 | Failures: a query's `error` names the generator, its module and the input files; template errors give file and line; a gofmt failure shows the generated lines around it | M | Golden files for each message |
-| ☐ | M3.5 | Definitions shared by a metafile's queries (`defs`) | S | The `pascal` function is defined once and used by two generators |
-| ☐ | M3.6 | Determinism: the same inputs give the same bytes on all three OSes | S | The e2e suite runs every script twice and compares; the golden outputs are the same files on all three OSes in CI |
+| ☑ | M3.1 | Inputs: every file of each needed domain, ordered by path, in an object keyed by domain, whether a generator needs one domain or several. JSON and YAML | M | e2e with two files of one domain and with two domains |
+| ☑ | M3.2 | `units`, `vars` and `out`: each output of the units query is one render; vars are evaluated per unit. An `out` path must follow M1.6's rules on every OS (slash-separated, relative, no `..`, no `\`, `:` or reserved Windows names), stay out of dot-directories, `go.mod`, `go.sum`, `go.work`, the manifest and the lock, and belong to one generator only, compared without case. Every unit renders before anything is written. Writes and deletes go through `os.Root`, so a symlink can't lead outside the module | M | An e2e script for each refusal, naming the generator and the path; one with a symlink |
+| ☑ | M3.3 | A generator that writes a domain file, for turning a foreign file into a domain. It declares `emits`, and genx encodes its query's result as JSON | S | e2e: foreign file → domain file → second generator → Go, in `use` order until M4.1 orders it |
+| ☑ | M3.4 | Failures: a query's `error` names the generator, its module and the input files; template errors give file and line; a gofmt failure shows the generated lines around it | M | Golden files for each message |
+| ☑ | M3.5 | Definitions shared by a metafile's queries (`defs`) | S | The `pascal` function is defined once and used by two generators |
+| ☑ | M3.6 | Determinism: the same inputs give the same bytes on all three OSes | S | The e2e suite runs every script twice and compares; the golden outputs are the same files on all three OSes in CI |
 
 ---
 
@@ -219,11 +219,11 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M4.1 | `internal/plan`: build the graph from what each step emits and needs, generators included (their `emits`); order it, with manifest order breaking ties. Errors: a needed domain nobody writes, a cycle, two steps writing one file | M | Unit tests for each error; the order is stable; e2e: sqlc-like foreign file → generator → labels → i18n's generator, declared in reverse order |
-| ☐ | M4.2 | Producers: run argv without a shell, in `dir`, with a timeout, their output prefixed with the step's name. Afterwards each declared file must exist, parse, and say the declared domain | M | e2e for a failing producer, a missing file and a wrong domain |
-| ☐ | M4.3 | Foreign files: a domain given in the manifest for a file that doesn't name one | S | e2e |
-| ☐ | M4.4 | A producer may declare `needs`, so a program can read domain files and still run in order | S | e2e: a script that consumes a labels file runs after its producer |
-| ☐ | M4.5 | `genx list`: the steps in order, with what each reads and writes | S | Golden output for the pilot's manifest |
+| ☑ | M4.1 | `internal/plan`: build the graph from what each step emits and needs, generators included (their `emits`); order it, with manifest order breaking ties. Errors: a needed domain nobody writes, a cycle, two steps writing one file | M | Unit tests for each error; the order is stable; e2e: sqlc-like foreign file → generator → labels → i18n's generator, declared in reverse order |
+| ☑ | M4.2 | Producers: run argv without a shell, in `dir`, with a timeout, their output prefixed with the step's name. Afterwards each declared file must exist, parse, and say the declared domain | M | e2e for a failing producer, a missing file and a wrong domain |
+| ☑ | M4.3 | Foreign files: a domain given in the manifest for a file that doesn't name one | S | e2e |
+| ☑ | M4.4 | A producer may declare `needs`, so a program can read domain files and still run in order | S | e2e: a script that consumes a labels file runs after its producer |
+| ☑ | M4.5 | `genx list`: the steps in order, with what each reads and writes | S | Golden output for the pilot's manifest |
 
 ---
 
