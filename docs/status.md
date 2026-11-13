@@ -4,6 +4,50 @@ Newest first. Every working session adds an entry: what landed, the decisions
 taken for you, what's next, and what's waiting on you. The terms are in
 [ownership.md](ownership.md).
 
+## 2026-11-13: M9, v0.1.0; i18n v0.2.0 and cfgx v0.2.0
+
+- **Landed:**
+  - **M9.1** ([PR #12](https://github.com/epistemer/genx/pull/12)):
+    - [failures.md](failures.md) lists every failure with its message and the
+      e2e script that shows it, and a test keeps each row true.
+    - Messages that didn't say what to do next now do.
+    - Ctrl-C stops the running step and writes nothing more. Before, genx
+      died at once and could leave a temporary file behind.
+  - **M9.3** ([PR #13](https://github.com/epistemer/genx/pull/13)):
+    [review 0009](reviews/0009-gemini-m9.3-review.md) checked genxtest and
+    both formats against the interface. All 14 findings were accepted: five
+    fixes and ten missing tests.
+  - **M9.2, M9.4, M9.5** ([PR #14](https://github.com/epistemer/genx/pull/14)):
+    - the README's quickstart, which I followed step by step in a fresh
+      `cfgx init` app;
+    - the timings: cfgx's zp example takes 2.8 s warm, 2.5 s of it cfgx;
+      zp's enums over its 5.4 MB sqlc request take 0.36 s;
+    - the CHANGELOG.
+  - **`v0.1.0`** is tagged and resolves through the module proxy.
+  - **The release order is complete:**
+    - i18n `v0.2.0` ([i18n PR #10](https://github.com/epistemer/i18n/pull/10)):
+      genx finds its generator in an app that requires only i18n.
+    - cfgx `v0.2.0` ([cfgx PR #42–#44](https://github.com/epistemer/cfgx/pull/44)):
+      `App.Labels()`, with its example on the released versions of both.
+- **Reviewed:** Gemini 4 Hydrogen (High), about 464k tokens, reviewed M9.3.
+  Argon was out of quota. What it caught:
+  - a YAML anchor used twice was refused as circular. The bug had also
+    been the only guard against "billion laughs" files, so both YAML readers
+    now have an expansion limit (amendment A3);
+  - a broken second YAML document was ignored;
+  - `genxtest.Render` accepted an input in another major version;
+  - `use` accepted a `package main` directory.
+- **Decided for you:**
+  - Amendment A3, the alias limit: 10,000 values plus 100 per byte of the
+    file. It only refuses files that no real app writes.
+  - The timings don't call for parallel steps or caching, so backlog item
+    8 stays where it is.
+- **Next:** the backlog's first item, neozp's models package on sqlc. It is
+  the second user the formats need before `v1.0.0`, and a new package, so
+  it starts when you say which repository it goes in.
+- **Waiting on you:** nothing. `v1.0.0` is yours to call, after the models
+  package has used the formats in a real app.
+
 ## 2026-11-13: M8, cfgx and i18n generate through genx; v0.1.0-rc.3
 
 - **Landed:**
