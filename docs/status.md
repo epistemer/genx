@@ -44,9 +44,10 @@ taken for you, what's next, and what's waiting on you. The terms are in
     not run in a copy (ADR 0007). This is in the freeze too.
 - **Next:** once the interface is locked, M2 (the walking skeleton), then M3,
   M4 and M6 side by side.
+- **Locked:** you locked interface.md the same day, choosing `use` by
+  package, no `vars`, and `zz_` names for generator outputs. cfgx M11.1 and
+  i18n M6.1 can start.
 - **Waiting on you:**
-  - **The freeze of interface.md (M1.6).** Four questions with defaults are
-    in this session's summary; the rest of the draft follows the reviews.
   - cfgx PR #41 and i18n PR #7, which hold the design records. ADR 0003
     answers i18n's open question about where the generator's files sit.
   - Deleting the merged branches (`m0-foundations`, `m0.5-design-review`,

@@ -1,9 +1,9 @@
 # genx — Interface
 
-> Status: **draft for the freeze (M1.6)**, 2026-11-13, revised by
-> [review 0003](reviews/0003-gemini-interface-review.md). Locking it is
-> epistemer's call ([ownership.md](ownership.md)). After the lock, a change to
-> anything here is an amendment, listed in §13 with its reason.
+> Status: **locked by epistemer on 2026-11-13** (M1.6), after
+> [review 0003](reviews/0003-gemini-interface-review.md). epistemer chose:
+> `use` names packages, no `vars`, and `zz_` names for generator outputs.
+> A change to anything here is an amendment, listed in §13 with its reason.
 >
 > This document is the contract: what an app author and a package author
 > write, and what genx does with it. [ADR 0001](adr/0001-generation-pipeline.md)
