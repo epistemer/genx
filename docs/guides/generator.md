@@ -150,6 +150,24 @@ func keys(m map[string][]byte) []string {
 }
 ```
 
+To test what a generator refuses (a query's `error`), give `Render` a
+`testing.TB` that records the failure instead of stopping. i18n's generator
+tests its checks this way:
+
+```go
+type failure struct {
+	testing.TB
+	msg string
+}
+
+func (f *failure) Helper()                         {}
+func (f *failure) Fatalf(format string, args ...any) { f.msg = fmt.Sprintf(format, args...) }
+
+f := &failure{TB: t}
+files := genxtest.Render(f, ".", "labels", genxtest.Input{Path: "testdata/clash.json"})
+// files is nil, and f.msg holds genx's message with the query's error.
+```
+
 ## 5. Switch it on in an app
 
 ```yaml
