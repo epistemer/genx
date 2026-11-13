@@ -102,7 +102,7 @@ func (s *state) input(g generator) (map[string]any, []string) {
 func (s *state) emit(g generator, p string, unit any) ([]byte, error) {
 	d, err := domainOf(unit)
 	if err != nil {
-		return nil, fmt.Errorf("%s: a unit for %s: %w", g.step, p, err)
+		return nil, fmt.Errorf("%s: a unit for %s: %w (each unit must be an object with \"domain\": %q)", g.step, p, err, g.emits.String())
 	}
 	if d != g.emits {
 		return nil, fmt.Errorf("%s: a unit for %s says domain %s; the generator emits %s", g.step, p, d, g.emits)

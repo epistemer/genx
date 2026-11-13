@@ -48,8 +48,8 @@ func Render(ctx context.Context, dir, generator string, inputs []Input) (map[str
 		var d domain.Domain
 		if in.Domain != "" {
 			d, err = domain.Parse(in.Domain)
-		} else {
-			d, err = domainOf(v)
+		} else if d, err = domainOf(v); err != nil {
+			err = fmt.Errorf("%w (give a foreign file's Input a Domain)", err)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", name, err)

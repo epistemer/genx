@@ -84,7 +84,7 @@ func Parse(file string, data []byte) (*Metafile, error) {
 			genPath := yamlx.FieldPath("generators", genName)
 
 			if !isValidName(genName) {
-				errs.Add(ge.KeyNode.Line, genPath, fmt.Sprintf("%q is not a valid generator name", genName))
+				errs.Add(ge.KeyNode.Line, genPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", genName))
 			}
 
 			if ge.ValNode.Kind != yaml.MappingNode {

@@ -10,3 +10,19 @@ stderr '^genx: unknown command "frobnicate"$'
 # The temporary module is in place for later scripts.
 exists go.mod
 grep '^module example.com/app$' go.mod
+
+# Arguments where a command takes none are a usage error too.
+! exec genx check extra
+cmp stderr want/args.txt
+
+-- want/args.txt --
+genx check: takes no arguments
+
+genx runs an app's code generation: producers, then trivial generators.
+
+Usage:
+
+	genx          run every step, write what changed, delete what nothing produces
+	genx check    write nothing; fail if any output is stale, missing or left over
+	genx list     show the steps in order, and what each reads and writes
+	genx help     show this text

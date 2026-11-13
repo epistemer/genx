@@ -4,9 +4,11 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 
 	"github.com/epistemer/genx/internal/run"
 )
@@ -51,10 +53,23 @@ func Main(args []string, stdout, stderr io.Writer) int {
 
 // do runs a command in the working directory and turns its error into a
 // message and exit code 1.
+//
+// The first interrupt (Ctrl-C) cancels the run: genx stops the step that is
+// running, writes nothing more and reports it. A second one ends genx at once.
 func do(cmd func(context.Context, run.Options) error, stdout, stderr io.Writer) int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
 	dir, err := os.Getwd()
 	if err == nil {
-		err = cmd(context.Background(), run.Options{Dir: dir, Stdout: stdout, Stderr: stderr})
+		err = cmd(ctx, run.Options{Dir: dir, Stdout: stdout, Stderr: stderr})
+	}
+	if err != nil && ctx.Err() != nil && errors.Is(err, context.Canceled) {
+		fmt.Fprintln(stderr, "genx: interrupted; files already written stay, so run genx again")
+		return 1
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "genx: %v\n", err)

@@ -1,0 +1,16 @@
+# The first interrupt stops the running producer, and genx writes nothing
+# more and says so.
+[windows] skip 'Windows has no interrupt signal to send'
+! exec genx &run&
+exec sleepy 1s
+kill -INT run
+wait run
+stderr '^genx: interrupted; files already written stay, so run genx again$'
+! exists genx.lock
+
+-- genx.yaml --
+version: 1
+producers:
+  - name: slow
+    run: [sleepy, 30s]
+    emits: [zz_x.labels.json]

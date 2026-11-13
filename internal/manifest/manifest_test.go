@@ -140,7 +140,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "producer invalid name pattern",
 			data:    "version: 1\nproducers:\n  - name: Bad_Name\n    run: [go]\n    emits: [zz_a.json]\n",
-			wantErr: `genx.yaml:3: producers[0].name: "Bad_Name" is not a valid producer name`,
+			wantErr: `genx.yaml:3: producers[0].name: "Bad_Name" is not a valid producer name (a lowercase letter, then lowercase letters, digits and -)`,
 		},
 		{
 			name:    "duplicate producer name",
@@ -185,7 +185,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "producer invalid needs domain",
 			data:    "version: 1\nproducers:\n  - name: p1\n    run: [go]\n    needs: [bad_domain]\n    emits: [zz_a.json]\n",
-			wantErr: `genx.yaml:5: producers[0].needs[0]: "bad_domain": invalid domain`,
+			wantErr: `genx.yaml:5: producers[0].needs[0]: "bad_domain": invalid domain (want name/vN, such as labels/v1)`,
 		},
 		{
 			name:    "producer missing emits",
@@ -215,12 +215,12 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "producer foreign emit invalid domain",
 			data:    "version: 1\nproducers:\n  - name: p1\n    run: [go]\n    emits:\n      - path: models/req.json\n        domain: invalid\n",
-			wantErr: `genx.yaml:7: producers[0].emits[0].domain: "invalid": invalid domain`,
+			wantErr: `genx.yaml:7: producers[0].emits[0].domain: "invalid": invalid domain (want name/vN, such as labels/v1)`,
 		},
 		{
 			name:    "duplicate emit path across producers",
 			data:    "version: 1\nproducers:\n  - name: p1\n    run: [go]\n    emits: [zz_a.json]\n  - name: p2\n    run: [go]\n    emits: [ZZ_A.JSON]\n",
-			wantErr: `genx.yaml:8: producers[1].emits[0]: duplicate emit path "ZZ_A.JSON"`,
+			wantErr: `genx.yaml:8: producers[1].emits[0]: duplicate emit path "ZZ_A.JSON" (also line 5)`,
 		},
 		{
 			name:    "use not sequence",
@@ -255,7 +255,7 @@ func TestParseErrors(t *testing.T) {
 		{
 			name:    "use invalid generator name",
 			data:    "version: 1\nuse:\n  - example.com/pkg: [Bad_Gen]\n",
-			wantErr: `genx.yaml:3: use[0].example.com/pkg: "Bad_Gen" is not a valid generator name`,
+			wantErr: `genx.yaml:3: use[0].example.com/pkg: "Bad_Gen" is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)`,
 		},
 		{
 			name:    "use duplicate package+generator",
@@ -296,7 +296,7 @@ producers:
 	}
 	expected := []string{
 		"genx.yaml:2: bogus_key: unknown field",
-		`genx.yaml:4: producers[0].name: "BadName" is not a valid producer name`,
+		`genx.yaml:4: producers[0].name: "BadName" is not a valid producer name (a lowercase letter, then lowercase letters, digits and -)`,
 		"genx.yaml:5: producers[0].run: must not be empty",
 		`genx.yaml:7: producers[0].emits[0]: "bad/../path": not clean (use "path")`,
 	}

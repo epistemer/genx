@@ -1,0 +1,73 @@
+# What genx says about a manifest it can't read. Every problem is listed at
+# once, with its line.
+cp manifests/many.yaml genx.yaml
+! exec genx
+cmp stderr want/many.txt
+
+# A duplicate key stops the reading at once.
+cp manifests/dupkey.yaml genx.yaml
+! exec genx
+cmp stderr want/dupkey.txt
+
+# A metafile gets the same treatment, named by its path.
+cp manifests/usebad.yaml genx.yaml
+! exec genx
+cmp stderr want/metabad.txt
+
+# genx needs go.mod to find the module root.
+rm go.mod
+! exec genx
+stderr '^genx: no go.mod in '
+
+-- bad/bad.go --
+package bad
+-- bad/genx.meta.yaml --
+version: 1
+generators:
+  bad:
+    doc: |
+      two
+      lines
+    needs: [labels]
+    units: '{}'
+    out: '"zz_x.go"'
+    template: x.tmpl
+    emits: labels/v1
+-- manifests/many.yaml --
+version: 1
+producers:
+  - name: Settings
+    run: []
+    emits: [zz_a.json]
+    timeout: soon
+    colour: blue
+  - name: other
+    run: [x]
+    emits: [zz_a.json, zz_a.json]
+use:
+  - example.com/app/bad: [x, x]
+-- manifests/dupkey.yaml --
+version: 1
+producers:
+  - name: other
+    run: [x]
+    emits: [zz_a.json]
+    emits: [zz_b.json]
+-- manifests/usebad.yaml --
+version: 1
+use:
+  - example.com/app/bad: [bad]
+-- want/many.txt --
+genx: genx.yaml:3: producers[0].name: "Settings" is not a valid producer name (a lowercase letter, then lowercase letters, digits and -)
+genx.yaml:4: producers[0].run: must not be empty
+genx.yaml:6: producers[0].timeout: invalid duration "soon"
+genx.yaml:7: producers[0].colour: unknown field
+genx.yaml:10: producers[1].emits[0]: duplicate emit path "zz_a.json" (also line 5)
+genx.yaml:10: producers[1].emits[1]: duplicate emit path "zz_a.json" (also line 5)
+genx.yaml:12: use[0].example.com/app/bad: duplicate generator "x" for package "example.com/app/bad"
+-- want/dupkey.txt --
+genx: genx.yaml:6: producers[0].emits: duplicate key "emits"
+-- want/metabad.txt --
+genx: example.com/app/bad/genx.meta.yaml:3: generators.bad: exactly one of template and emits
+example.com/app/bad/genx.meta.yaml:4: generators.bad.doc: must be one line
+example.com/app/bad/genx.meta.yaml:7: generators.bad.needs[0]: "labels": invalid domain (want name/vN, such as labels/v1)

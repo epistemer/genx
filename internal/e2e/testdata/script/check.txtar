@@ -129,7 +129,7 @@ genx: check found 2 problems; run genx:
 -- want/nocfg.txt --
 genx: check found 1 problem; run genx:
   producer  cfg: cfg.json: declared in emits, but the producer didn't write it
-Then: example.com/app/gen:one needs cfg/v1, which no step writes
+Then: example.com/app/gen:one needs cfg/v1, which no step writes; add what writes it to genx.yaml, or remove what needs it
 -- want/producer.txt --
 cfg: failing: cfg.json is stale
 genx: check found 1 problem; run genx:
