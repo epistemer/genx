@@ -4,6 +4,69 @@ Newest first. Every working session adds an entry: what landed, the decisions
 taken for you, what's next, and what's waiting on you. The terms are in
 [ownership.md](ownership.md).
 
+## 2026-11-13: M2–M7, the driver works; v0.1.0-rc.2
+
+- **Landed:**
+  - **M2** ([PR #4](https://github.com/epistemer/genx/pull/4)): the walking
+    skeleton. Strict YAML for the manifest and metafiles, path rules, gojq
+    with the refused list, templates, and a runner that writes only what
+    changed, atomically, through `os.Root`.
+  - **M3, M4** ([PR #5](https://github.com/epistemer/genx/pull/5)):
+    everything a metafile can say, and the plan that orders producers and
+    generators by the domains they need and write. `genx list`.
+  - **M6** ([PR #6](https://github.com/epistemer/genx/pull/6)): generator
+    packages from the module cache, `replace`, `go.work` and vendoring
+    offline, tested through a local module proxy; generators not switched
+    on; version mismatches that name the files.
+  - **M5** ([PR #7](https://github.com/epistemer/genx/pull/7)):
+    `genx.lock`, leftovers, never-replace, `genx check` (it writes nothing;
+    a script compares the tree's hash), and `go generate`.
+  - **M7** ([PR #8](https://github.com/epistemer/genx/pull/8)): `labels/v1`
+    checks with 38 conformance files, `genxtest`, two guides, and the
+    example module `examples/labels`, which CI tests.
+  - **M8.1** ([PR #9](https://github.com/epistemer/genx/pull/9)):
+    `v0.1.0-rc.2` is tagged; in an empty module `go get -tool` fetches it
+    through proxy.golang.org and `go tool genx` runs. `v0.1.0-rc.1` can't be
+    fetched: two conformance files differed only in case, which the go
+    command refuses to zip. They're renamed, and a test now fails on any
+    such pair.
+  - **The `genx` skill**, `~/.claude/skills/genx/`, and a pointer to it in
+    your global CLAUDE.md.
+- **Reviewed:** reviews [0004](reviews/0004-gemini-m2-review.md) to
+  [0008](reviews/0008-gemini-m7-review.md). Gemini wrote the leaf packages,
+  the plan, M6 and the labels checks; I reviewed each and wrote the runner,
+  M5 and genxtest, which Gemini reviewed. The catches that mattered:
+  - the jq refusal walk named gojq's syntax tree by hand; it now walks
+    every field by reflection;
+  - on a first run a producer that needs a domain could run before the one
+    that writes it;
+  - `genx list` failed on a clean checkout, and a stale file on disk could
+    raise a false version error;
+  - a run that stopped before writing the lock would have wedged the next;
+  - the example generator declared a name `labels/v1` doesn't allow.
+- **Spent:** about 5.1M Gemini tokens over the whole session, nearly all on
+  Gemini 3.8 Flash (High) (14 runs, 5.0M); Hydrogen (High) 98k for the two
+  design reviews; Flash (Medium) 61k. Argon was out of quota throughout.
+- **Decided for you:**
+  - A producer's domains are read from its files before it runs when they
+    exist, as a guess that orders steps but raises no error; on a first run
+    they're learned as it runs. A step that needs a domain waits for
+    producers that need nothing.
+  - A file that already holds exactly what genx would write is taken as
+    genx's, so a run that stopped before writing the lock recovers.
+  - `genx list` lists with `-tags=genx`, so packages kept by ADR 0003's
+    build-tagged blank import show up.
+  - The guides' code is the example's files, checked by a test.
+- **Next:** M8.2–M8.4 in i18n and cfgx, then M9 and `v0.1.0`.
+- **Waiting on you:**
+  - **genxtest's API** (interface §12): this session's summary has the
+    question.
+  - **cfgx PR #41 and i18n PR #7**, the design records. M8.2 (i18n's
+    generator) and M8.3 (cfgx's `App.Labels()`) change both packages'
+    APIs, so they wait for you to accept those records.
+  - Deleting the merged branches and the broken tag `v0.1.0-rc.1`, which
+    the safety checks leave to you.
+
 ## 2026-11-13: ownership, M0 and the spikes; the interface waits for its freeze
 
 - **Landed:**

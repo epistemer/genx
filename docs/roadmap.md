@@ -268,7 +268,7 @@ labels file's Go comes out as before.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M8.1 | Tag `v0.1.0-rc.1` | S | `go get` resolves it through the module proxy |
+| ☑ | M8.1 | Tag `v0.1.0-rc.1` (cut as `v0.1.0-rc.2`: rc.1 couldn't be fetched) | S | `go get` resolves it through the module proxy |
 | ☐ | M8.2 | In i18n: M6.1 and M6.2 against the release candidate | – | i18n's CI is green |
 | ☐ | M8.3 | In cfgx: M11.2. `examples/zp` generates through the driver | – | The same declarations as before, compared in a test; cfgx's CI is green on three OSes |
 | ☐ | M8.4 | A friction log from M8.2 and M8.3. Each entry becomes an amendment or a backlog item | M | Merged |
