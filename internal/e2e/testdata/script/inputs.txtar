@@ -1,6 +1,6 @@
 # M3.1: a generator's input is an object keyed by domain, each holding the
 # domain's files in path order, whatever order the producers ran in. JSON and
-# YAML both work.
+# YAML (.yaml or .yml) both work.
 exec genx
 cmp zz_inputs.go want/zz_inputs.go
 
@@ -19,6 +19,9 @@ producers:
   - name: first
     run: [produce, data/a.json, a/zz_a.labels.json]
     emits: [a/zz_a.labels.json]
+  - name: third
+    run: [produce, data/c.yml, c/zz_c.labels.yml]
+    emits: [c/zz_c.labels.yml]
   - name: config
     run: [produce, data/config.yaml, config.yaml]
     emits:
@@ -51,6 +54,11 @@ package app
 {"domain": "labels/v1", "producer": "first", "package": {"name": "a", "dir": "a"}, "labels": []}
 -- data/b.json --
 {"domain": "labels/v1", "producer": "second", "package": {"name": "b", "dir": "b"}, "labels": []}
+-- data/c.yml --
+domain: labels/v1
+producer: third
+package: {name: c, dir: c}
+labels: []
 -- data/config.yaml --
 name: demo
 port: 8080
@@ -61,5 +69,5 @@ big: 12345678901234567890
 package app
 
 // Domains: app.config/v1 labels/v1
-// Producers in path order: first second
+// Producers in path order: first second third
 // Config: demo, port 8080, big 12345678901234567890

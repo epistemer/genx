@@ -58,13 +58,14 @@ func HasHeader(b []byte) bool {
 // If outPath ends in .go, b is formatted with go/format.Source; on failure the error
 // displays the format error and the generated lines around the error line (3 before,
 // 3 after, numbered). After formatting, the first line must match the generated Go
-// header regexp, or Finish returns an error. Non-.go output is returned unchanged.
+// header regexp, or Finish returns an error. Non-.go output has its CRLF line
+// endings turned into LF (interface.md §2).
 func Finish(outPath string, b []byte) (out []byte, empty bool, err error) {
 	if len(bytes.TrimSpace(b)) == 0 {
 		return nil, true, nil
 	}
 	if !strings.HasSuffix(outPath, ".go") {
-		return b, false, nil
+		return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n")), false, nil
 	}
 
 	formatted, err := format.Source(b)

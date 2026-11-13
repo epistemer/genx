@@ -274,3 +274,15 @@ func TestNonGoOutputUnchanged(t *testing.T) {
 		t.Errorf("non-go output changed:\ngot:  %q\nwant: %q", string(out), string(jsonBytes))
 	}
 }
+
+// TestFinishLF: genx writes LF line endings in every file (interface.md §2),
+// including text a unit brings into a file that isn't Go.
+func TestFinishLF(t *testing.T) {
+	out, empty, err := render.Finish("zz_notes.md", []byte("one\r\ntwo\r\n"))
+	if err != nil || empty {
+		t.Fatalf("Finish: %v, empty %v", err, empty)
+	}
+	if string(out) != "one\ntwo\n" {
+		t.Errorf("got %q, want LF line endings", out)
+	}
+}

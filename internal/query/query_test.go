@@ -3,6 +3,7 @@ package query_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -680,6 +681,47 @@ alias_ref: *base
 		aliasRef := m["alias_ref"].(map[string]any)
 		if !reflect.DeepEqual(aliasRef["x"], 10) || !reflect.DeepEqual(aliasRef["y"], 20) {
 			t.Errorf("alias expansion failed: %#v", aliasRef)
+		}
+	})
+
+	t.Run("YAML alias reached on two paths", func(t *testing.T) {
+		v, err := query.Decode([]byte("a: &a 1\nb: &b [*a]\nc: *b\nd: *b\n"), true)
+		if err != nil {
+			t.Fatalf("unexpected decode error: %v", err)
+		}
+		want := map[string]any{"a": 1, "b": []any{1}, "c": []any{1}, "d": []any{1}}
+		if !reflect.DeepEqual(v, want) {
+			t.Errorf("got %#v, want %#v", v, want)
+		}
+	})
+
+	t.Run("YAML merge sequence: earlier mappings win", func(t *testing.T) {
+		v, err := query.Decode([]byte("p: &p {x: 1, y: 1}\nq: &q {x: 2, z: 2}\nr:\n  <<: [*p, *q]\n  y: 3\n"), true)
+		if err != nil {
+			t.Fatalf("unexpected decode error: %v", err)
+		}
+		want := map[string]any{"x": 1, "y": 3, "z": 2}
+		if got := v.(map[string]any)["r"]; !reflect.DeepEqual(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("YAML alias cycle refused", func(t *testing.T) {
+		if _, err := query.Decode([]byte("a: &a [*a]\n"), true); err == nil {
+			t.Fatal("expected an error for a cycle, got nil")
+		}
+	})
+
+	t.Run("YAML alias bomb refused", func(t *testing.T) {
+		src := "a: &a [x, x, x, x, x, x, x, x, x, x]\n"
+		for i, prev := 1, "a"; i < 9; i++ {
+			name := string(rune('a' + i))
+			src += fmt.Sprintf("%s: &%s [*%s, *%s, *%s, *%s, *%s, *%s, *%s, *%s, *%s, *%s]\n", name, name, prev, prev, prev, prev, prev, prev, prev, prev, prev, prev)
+			prev = name
+		}
+		_, err := query.Decode([]byte(src), true)
+		if err == nil || err.Error() != "the YAML aliases expand to too many values" {
+			t.Fatalf("err = %v, want the expansion limit", err)
 		}
 	})
 }

@@ -81,7 +81,9 @@ func compileUse(u manifest.Use, dir string) ([]generator, error) {
 // packageDirs lists the packages' directories with the go command, which
 // applies the module's replace directives, go.work and -mod=vendor.
 func (s *state) packageDirs(uses []manifest.Use) (map[string]string, error) {
-	args := []string{"list", "-e", "-json=ImportPath,Dir,Error"}
+	// -tags=genx as genx list uses it, so a package kept by a build-tagged
+	// blank import resolves the same way.
+	args := []string{"list", "-tags=genx", "-e", "-json=ImportPath,Name,Dir,Error"}
 	seen := map[string]bool{}
 	for _, u := range uses {
 		if !seen[u.Package] {
@@ -99,6 +101,7 @@ func (s *state) packageDirs(uses []manifest.Use) (map[string]string, error) {
 	}
 	type listed struct {
 		ImportPath string
+		Name       string
 		Dir        string
 		Error      *struct{ Err string }
 	}
@@ -129,6 +132,8 @@ func (s *state) packageDirs(uses []manifest.Use) (map[string]string, error) {
 				"then run go get %s", u.Package, reason, u.Package, u.Package)
 		case p.Error != nil:
 			return nil, fmt.Errorf("use %s: %s", u.Package, strings.TrimSpace(p.Error.Err))
+		case p.Name == "main":
+			return nil, fmt.Errorf("use %s: a command (package main) can't ship generators; move its genx.meta.yaml to an importable package", u.Package)
 		}
 		dirs[u.Package] = p.Dir
 	}
@@ -188,6 +193,9 @@ func compile(pkg string, mf *meta.Metafile, root *os.Root, name string) (generat
 		return g, nil
 	}
 	src, err := root.ReadFile(mg.Template)
+	if errors.Is(err, os.ErrNotExist) {
+		return generator{}, fmt.Errorf("%s: template: %s isn't in the package's directory, next to %s", step, mg.Template, MetaFile)
+	}
 	if err != nil {
 		return generator{}, fmt.Errorf("%s: template: %w", step, err)
 	}

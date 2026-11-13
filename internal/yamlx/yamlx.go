@@ -130,9 +130,16 @@ func Parse(file string, data []byte) (*yaml.Node, error) {
 			line = 1
 		}
 		return nil, &Error{File: file, Line: line, Msg: "unexpected second document"}
+	} else if !errors.Is(err, io.EOF) {
+		return nil, &Error{File: file, Line: extractLine(err), Msg: cleanYAMLError(err)}
 	}
 
 	root := doc.Content[0]
+	if n, err := expandedSize(root, map[*yaml.Node]int{}); err != nil {
+		return nil, &Error{File: file, Line: 1, Msg: err.Error()}
+	} else if n > aliasBudget(len(data)) {
+		return nil, &Error{File: file, Line: 1, Msg: "the YAML aliases expand to too many values"}
+	}
 
 	visited := make(map[*yaml.Node]bool)
 	if err := expandAliases(file, root, "", visited); err != nil {
@@ -169,6 +176,39 @@ func cleanYAMLError(err error) string {
 		s = s[idx+2:]
 	}
 	return s
+}
+
+// aliasBudget is how many nodes a file may have once its aliases are
+// expanded: enough for any real file, too few for one that expands
+// exponentially (a "billion laughs" file).
+func aliasBudget(size int) int { return 10000 + 100*size }
+
+// expandedSize counts the nodes under n with every alias expanded, in time
+// linear in the file. memo holds each counted node's size, and -1 while it
+// is being counted, which marks a cycle.
+func expandedSize(n *yaml.Node, memo map[*yaml.Node]int) (int, error) {
+	if n.Kind == yaml.AliasNode && n.Alias != nil {
+		n = n.Alias
+	}
+	switch size, ok := memo[n]; {
+	case ok && size < 0:
+		return 0, errors.New("alias cycle detected")
+	case ok:
+		return size, nil
+	}
+	memo[n] = -1
+	size := 1
+	for _, c := range n.Content {
+		cs, err := expandedSize(c, memo)
+		if err != nil {
+			return 0, err
+		}
+		if size += cs; size > 1<<40 {
+			size = 1 << 40 // stop growing; any budget is far below
+		}
+	}
+	memo[n] = size
+	return size, nil
 }
 
 func cloneNode(n *yaml.Node) *yaml.Node {

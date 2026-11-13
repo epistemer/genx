@@ -231,3 +231,27 @@ func TestErrorsSorting(t *testing.T) {
 		t.Fatalf("got %q, want %q", err.Error(), want)
 	}
 }
+
+func TestParseRefusals(t *testing.T) {
+	bomb := "a: &a [x, x, x, x, x, x, x, x, x, x]\n"
+	for i, prev := 1, "a"; i < 9; i++ {
+		name := string(rune('a' + i))
+		bomb += name + ": &" + name + " [" + strings.Repeat("*"+prev+", ", 9) + "*" + prev + "]\n"
+		prev = name
+	}
+	for _, tt := range []struct{ name, src, want string }{
+		{"a broken second document", "version: 1\n---\n: : [\n", "genx.yaml:4: did not find expected node content"},
+		{"an alias bomb", bomb, "genx.yaml:1: the YAML aliases expand to too many values"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse("genx.yaml", []byte(tt.src))
+			if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
+				t.Fatalf("err = %v, want it to start with %q", err, tt.want)
+			}
+		})
+	}
+	// An anchor used on two paths is fine.
+	if _, err := Parse("genx.yaml", []byte("a: &a 1\nb: &b [*a]\nc: *b\nd: *b\n")); err != nil {
+		t.Fatalf("shared alias: %v", err)
+	}
+}

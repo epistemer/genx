@@ -25,6 +25,11 @@ cp manifests/clash.yaml genx.yaml
 ! exec genx
 cmp stderr want/clash.txt
 
+# A generator can't write a file a producer declares, in any case.
+cp manifests/onproducer.yaml genx.yaml
+! exec genx
+cmp stderr want/onproducer.txt
+
 # out must give exactly one string.
 cp manifests/two.yaml genx.yaml
 ! exec genx
@@ -111,6 +116,12 @@ generators:
     units: '1'
     out: '"link/zz_x.go"'
     template: x.tmpl
+  onproducer:
+    doc: over the producer's file
+    needs: [app.config/v1]
+    units: '1'
+    out: '"zz_Config.json"'
+    template: x.tmpl
   number:
     doc: a number
     needs: [app.config/v1]
@@ -183,6 +194,18 @@ producers:
         domain: app.config/v1
 use:
   - example.com/app/gen: [upper, lower]
+-- manifests/onproducer.yaml --
+version: 1
+producers:
+  - name: config
+    run: [produce, data/config.json, zz_config.json]
+    emits:
+      - path: zz_config.json
+        domain: app.config/v1
+use:
+  - example.com/app/gen: [onproducer]
+-- want/onproducer.txt --
+genx: example.com/app/gen:onproducer writes zz_Config.json, which producer config writes too
 -- manifests/number.yaml --
 version: 1
 producers:
