@@ -38,3 +38,7 @@ package.
 - Only test code imports go-internal; `cmd/genx` doesn't link it.
 - Scripts that need the go command (M6) get the host's caches through the
   environment the harness copies, as in cfgx.
+- M6 serves test modules from `internal/e2e/testdata/mod` with go-internal's
+  `goproxytest`, so scripts exercise the module cache, `replace`, `go.work`
+  and vendoring with no network. It brings `golang.org/x/mod` in as an
+  indirect, test-only dependency.

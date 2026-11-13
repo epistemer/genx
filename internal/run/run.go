@@ -72,6 +72,8 @@ func Run(ctx context.Context, opts Options) error {
 	return s.write()
 }
 
+// mismatchError names the files behind a major-version mismatch
+// (interface.md §10).
 func (s *state) mismatchError(mm *plan.MismatchError) error {
 	var files []string
 	for k, docs := range s.docs {
@@ -88,8 +90,12 @@ func (s *state) mismatchError(mm *plan.MismatchError) error {
 	if fileList == "" {
 		return mm
 	}
-	return fmt.Errorf("%s needs %s, but %s from %s say %s; upgrade the module that writes it, or the one that reads it",
-		mm.Step, mm.Need, fileList, mm.Writer, mm.Wrote)
+	verb := "says"
+	if len(files) > 1 {
+		verb = "say"
+	}
+	return fmt.Errorf("%s needs %s, but %s from %s %s %s; upgrade the module that writes it, or the one that reads it",
+		mm.Step, mm.Need, fileList, mm.Writer, verb, mm.Wrote)
 }
 
 // load finds the module root, reads and checks the manifest, claims every

@@ -124,12 +124,9 @@ func (s *state) listUnswitched(w io.Writer, uses []manifest.Use, hasSteps bool) 
 		name := p.ImportPath + "/" + MetaFile
 		mf, err := meta.Parse(name, b)
 		if err != nil {
-			firstLine := strings.Split(err.Error(), "\n")[0]
-			firstLine = strings.TrimSpace(firstLine)
-			firstLine = strings.TrimPrefix(firstLine, name+":")
-			firstLine = strings.TrimPrefix(firstLine, MetaFile+":")
-			firstLine = strings.TrimSpace(firstLine)
-			fmt.Fprintf(&buf, "  warning: %s/%s: %s\n", p.ImportPath, MetaFile, firstLine)
+			// The parser's message already starts with the file and line.
+			first, _, _ := strings.Cut(err.Error(), "\n")
+			fmt.Fprintf(&buf, "  warning: %s\n", first)
 			continue
 		}
 

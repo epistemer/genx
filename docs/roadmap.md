@@ -243,10 +243,10 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M6.1 | Resolve each `use` entry to a module directory, as S1 decided: module mode, `replace`, `go.work` | M | e2e in each mode |
-| ☐ | M6.2 | Vendoring, as S1 decided | M | e2e with `-mod=vendor` and no network |
-| ☐ | M6.3 | `genx list` also shows generators found in the module graph that the manifest doesn't use, with their module versions | S | Golden output |
-| ☐ | M6.4 | Versions: a metafile's `version`, and the major version of each domain. A mismatch names the module to upgrade | S | e2e: a `labels/v2` file against a generator that needs `v1` |
+| ☑ | M6.1 | Resolve each `use` entry to a module directory, as S1 decided: module mode, `replace`, `go.work` | M | e2e in each mode |
+| ☑ | M6.2 | Vendoring, as S1 decided | M | e2e with `-mod=vendor` and no network |
+| ☑ | M6.3 | `genx list` also shows generators found in the module graph that the manifest doesn't use, with their module versions | S | Golden output |
+| ☑ | M6.4 | Versions: a metafile's `version`, and the major version of each domain. A mismatch names the module to upgrade | S | e2e: a `labels/v2` file against a generator that needs `v1` |
 
 ---
 

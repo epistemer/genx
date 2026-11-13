@@ -95,7 +95,7 @@ use:
    writes  internal/settings/zz_settings.labels.json (its domain is known once it exists)
 
 Not switched on:
-  warning: example.com/app/bad/genx.meta.yaml: 1: generators: required
+  warning: example.com/app/bad/genx.meta.yaml:1: generators: required
   example.com/app/gen:other
       a local generator not switched on
   example.com/labels:consts (example.com/labels v1.0.0)
@@ -109,7 +109,7 @@ Not switched on:
    needs   labels/v1
 
 Not switched on:
-  warning: example.com/app/bad/genx.meta.yaml: 1: generators: required
+  warning: example.com/app/bad/genx.meta.yaml:1: generators: required
   example.com/app/gen:other
       a local generator not switched on
 -- want/zz_settings_consts.go --
