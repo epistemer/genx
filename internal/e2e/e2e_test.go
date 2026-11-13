@@ -70,9 +70,11 @@ func produce() {
 	}
 	// Under go generate, genx must not pass on the variables that describe
 	// its own directive (interface amendment A2).
-	if p := os.Getenv("GOPACKAGE"); p != "" {
-		fmt.Fprintln(os.Stderr, "produce: GOPACKAGE is set to", p)
-		os.Exit(1)
+	for _, v := range []string{"GOFILE", "GOLINE", "GOPACKAGE", "DOLLAR"} {
+		if x, ok := os.LookupEnv(v); ok {
+			fmt.Fprintf(os.Stderr, "produce: %s is set to %q\n", v, x)
+			os.Exit(1)
+		}
 	}
 	b, err := os.ReadFile(os.Args[1])
 	if err == nil {

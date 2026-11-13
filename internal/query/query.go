@@ -221,27 +221,58 @@ func decodeYAML(data []byte) (any, error) {
 	if len(doc.Content) == 0 {
 		return nil, errors.New("empty YAML document")
 	}
-	return decodeYAMLNode(&doc, make(map[*yaml.Node]bool))
+	d := &yamlDecoder{onPath: map[*yaml.Node]bool{}, budget: aliasBudget(len(data))}
+	return d.decode(&doc, false)
 }
 
-func decodeYAMLNode(node *yaml.Node, seen map[*yaml.Node]bool) (any, error) {
+// aliasBudget is how many values a YAML file may expand to through aliases:
+// enough for any real file, too few for one that expands exponentially
+// (a "billion laughs" file).
+func aliasBudget(size int) int { return 10000 + 100*size }
+
+// yamlDecoder turns a YAML node tree into JSON values, expanding aliases.
+// onPath holds the nodes being decoded, from the root to here: an alias to
+// one of them is a cycle. A node reached twice on different paths is fine.
+type yamlDecoder struct {
+	onPath map[*yaml.Node]bool
+	budget int
+}
+
+// resolve follows aliases to the node they name.
+func resolve(node *yaml.Node) (*yaml.Node, bool, error) {
+	aliased := false
 	for node.Kind == yaml.AliasNode {
 		if node.Alias == nil {
-			return nil, errors.New("unresolved alias")
+			return nil, false, errors.New("unresolved alias")
 		}
-		if seen[node] {
-			return nil, errors.New("circular alias detected in YAML")
-		}
-		seen[node] = true
-		node = node.Alias
+		node, aliased = node.Alias, true
 	}
+	return node, aliased, nil
+}
+
+func (d *yamlDecoder) decode(node *yaml.Node, inAlias bool) (any, error) {
+	node, aliased, err := resolve(node)
+	if err != nil {
+		return nil, err
+	}
+	inAlias = inAlias || aliased
+	if inAlias {
+		if d.budget--; d.budget < 0 {
+			return nil, errors.New("the YAML aliases expand to too many values")
+		}
+	}
+	if d.onPath[node] {
+		return nil, errors.New("circular alias detected in YAML")
+	}
+	d.onPath[node] = true
+	defer delete(d.onPath, node)
 
 	switch node.Kind {
 	case yaml.DocumentNode:
 		if len(node.Content) == 0 {
 			return nil, nil
 		}
-		return decodeYAMLNode(node.Content[0], seen)
+		return d.decode(node.Content[0], inAlias)
 	case yaml.ScalarNode:
 		switch node.Tag {
 		case "!!null":
@@ -259,17 +290,13 @@ func decodeYAMLNode(node *yaml.Node, seen map[*yaml.Node]bool) (any, error) {
 				return nil, errors.New(".inf is not allowed in YAML")
 			}
 			return convertNumber(node.Value)
-		case "!!timestamp":
-			return node.Value, nil
-		case "!!str", "":
-			return node.Value, nil
-		default:
+		default: // !!str, !!timestamp (kept as written) and other tags
 			return node.Value, nil
 		}
 	case yaml.SequenceNode:
 		res := make([]any, len(node.Content))
 		for i, elem := range node.Content {
-			v, err := decodeYAMLNode(elem, seen)
+			v, err := d.decode(elem, inAlias)
 			if err != nil {
 				return nil, err
 			}
@@ -278,69 +305,50 @@ func decodeYAMLNode(node *yaml.Node, seen map[*yaml.Node]bool) (any, error) {
 		return res, nil
 	case yaml.MappingNode:
 		res := make(map[string]any)
+		var merges []*yaml.Node
 		for i := 0; i < len(node.Content); i += 2 {
-			kNode := node.Content[i]
-			vNode := node.Content[i+1]
-
-			if kNode.Value == "<<" {
-				target := vNode
-				for target.Kind == yaml.AliasNode {
-					if seen[target] {
-						return nil, errors.New("circular alias in merge key")
-					}
-					seen[target] = true
-					target = target.Alias
-				}
-				if target.Kind == yaml.MappingNode {
-					merged, err := decodeYAMLNode(target, seen)
-					if err != nil {
-						return nil, err
-					}
-					if mMap, ok := merged.(map[string]any); ok {
-						for mk, mv := range mMap {
-							if _, exists := res[mk]; !exists {
-								res[mk] = mv
-							}
-						}
-					}
-				} else if target.Kind == yaml.SequenceNode {
-					for _, item := range target.Content {
-						for item.Kind == yaml.AliasNode {
-							if seen[item] {
-								return nil, errors.New("circular alias in merge key sequence")
-							}
-							seen[item] = true
-							item = item.Alias
-						}
-						if item.Kind == yaml.MappingNode {
-							merged, err := decodeYAMLNode(item, seen)
-							if err != nil {
-								return nil, err
-							}
-							if mMap, ok := merged.(map[string]any); ok {
-								for mk, mv := range mMap {
-									if _, exists := res[mk]; !exists {
-										res[mk] = mv
-									}
-								}
-							}
-						}
-					}
-				}
+			kNode, vNode := node.Content[i], node.Content[i+1]
+			if kNode.Value == "<<" && kNode.Kind == yaml.ScalarNode {
+				merges = append(merges, vNode)
 				continue
 			}
-
-			for kNode.Kind == yaml.AliasNode {
-				kNode = kNode.Alias
+			kNode, _, err := resolve(kNode)
+			if err != nil {
+				return nil, err
 			}
 			if kNode.Kind != yaml.ScalarNode || (kNode.Tag != "!!str" && kNode.Tag != "") {
 				return nil, fmt.Errorf("mapping keys must be strings: found tag %s", kNode.Tag)
 			}
-			val, err := decodeYAMLNode(vNode, seen)
+			val, err := d.decode(vNode, inAlias)
 			if err != nil {
 				return nil, err
 			}
 			res[kNode.Value] = val
+		}
+		// A merge key (<<) adds the keys of a mapping, or of each mapping in
+		// a sequence, that the mapping doesn't set itself.
+		for _, m := range merges {
+			target, _, err := resolve(m)
+			if err != nil {
+				return nil, err
+			}
+			sources := []*yaml.Node{m}
+			if target.Kind == yaml.SequenceNode {
+				sources = target.Content
+			}
+			for _, src := range sources {
+				v, err := d.decode(src, inAlias)
+				if err != nil {
+					return nil, err
+				}
+				if mm, ok := v.(map[string]any); ok {
+					for k, val := range mm {
+						if _, set := res[k]; !set {
+							res[k] = val
+						}
+					}
+				}
+			}
 		}
 		return res, nil
 	default:

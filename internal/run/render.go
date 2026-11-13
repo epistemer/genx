@@ -54,6 +54,11 @@ func Render(ctx context.Context, dir, generator string, inputs []Input) (map[str
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", name, err)
 		}
+		for _, need := range g.needs {
+			if need.Name == d.Name && need.Major != d.Major {
+				return nil, fmt.Errorf("%s needs %s, but %s says %s", g.step, need, name, d)
+			}
+		}
 		if err := s.record(d, name, v); err != nil {
 			return nil, err
 		}

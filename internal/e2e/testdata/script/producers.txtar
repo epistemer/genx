@@ -26,6 +26,12 @@ cp manifests/slow.yaml genx.yaml
 ! exec genx
 cmp stderr want/slow.txt
 
+# A producer runs in its dir; its emits stay relative to the module root.
+cp manifests/indir.yaml genx.yaml
+exec genx
+exists sub/zz_x.labels.json
+rm sub/zz_x.labels.json
+
 # A command that isn't installed.
 cp manifests/nocmd.yaml genx.yaml
 ! exec genx
@@ -96,6 +102,16 @@ producers:
     emits: [zz_x.labels.json]
 -- data/array.json --
 []
+-- sub/.keep --
+-- manifests/indir.yaml --
+version: 1
+producers:
+  - name: indir
+    dir: sub
+    run: [produce, ../data/sub.json, zz_x.labels.json]
+    emits: [sub/zz_x.labels.json]
+-- data/sub.json --
+{"domain": "labels/v1", "producer": "indir", "package": {"name": "sub", "dir": "sub"}, "labels": []}
 -- manifests/nocmd.yaml --
 version: 1
 producers:

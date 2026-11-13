@@ -335,3 +335,13 @@ cfgx, run for `internal/settings` from a directive in `package main`, wrote
 `zz_main.go`. genx now runs producers without those four variables. A
 clarification: a producer was never meant to see another directive's
 location.
+
+### A3. A limit on YAML aliases (2026-11-13, M9.3)
+
+§2 and §5 say aliases are expanded. A file whose aliases nest can expand
+exponentially, a "billion laughs" file, and a fix in review 0009 removed
+what had accidentally stopped one. genx now refuses a YAML file, whether
+manifest, metafile or domain file, that expands through aliases past
+10,000 values plus 100 per byte of the file, with "the YAML aliases expand
+to too many values". No real file comes near it. An anchor used on two
+paths was wrongly refused as circular before; now only a real cycle is.

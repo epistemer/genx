@@ -28,7 +28,7 @@ Scripts are in [internal/e2e/testdata/script](../internal/e2e/testdata/script).
 
 | Failure | What genx says | Script |
 |---------|----------------|--------|
-| A manifest newer than genx | `is newer than this genx supports; upgrade genx` | [versions](../internal/e2e/testdata/script/versions.txtar) |
+| A manifest newer than genx | `genx.yaml:1: version: version 2 is newer than this genx supports; upgrade genx` | [versions](../internal/e2e/testdata/script/versions.txtar) |
 | A metafile newer than genx | `genx.meta.yaml:1: version: version 2 is newer than this genx supports` | [versions](../internal/e2e/testdata/script/versions.txtar) |
 | A duplicate YAML key (stops reading at once) | `genx.yaml:6: producers[0].emits: duplicate key "emits"` | [manifest](../internal/e2e/testdata/script/manifest.txtar) |
 | An unknown field | `producers[0].colour: unknown field` | [manifest](../internal/e2e/testdata/script/manifest.txtar) |
@@ -43,7 +43,9 @@ Scripts are in [internal/e2e/testdata/script](../internal/e2e/testdata/script).
 | A refused jq function, when the metafile is read | `"now" is not allowed in a query (it reads the clock)` | [failures](../internal/e2e/testdata/script/failures.txtar) |
 
 The other shape rules (types, empty values, template names) give messages of
-the same form; `internal/manifest` and `internal/meta` test each one.
+the same form; `internal/manifest` and `internal/meta` test each one, and
+`internal/yamlx` tests what applies to both files: a broken second document,
+and aliases that expand to too many values.
 
 ## Finding generators
 
@@ -52,6 +54,7 @@ the same form; `internal/manifest` and `internal/meta` test each one.
 | A `use` package the go command can't find | `the go command can't find this package:`, then the build-tagged blank import to add | [use_missing](../internal/e2e/testdata/script/use_missing.txtar) |
 | A package `go mod tidy` dropped | `no required module provides package example.com/labels` | [modules_untidy](../internal/e2e/testdata/script/modules_untidy.txtar) |
 | A package without a metafile | `the package has no genx.meta.yaml, so it ships no generators; name the package that does` | [use_missing](../internal/e2e/testdata/script/use_missing.txtar) |
+| A command's directory (`package main`) | `a command (package main) can't ship generators; move its genx.meta.yaml to an importable package` | [use_missing](../internal/e2e/testdata/script/use_missing.txtar) |
 | A generator the metafile doesn't have | `no generator "labels" in its genx.meta.yaml (it has: read, write)` | [use_missing](../internal/e2e/testdata/script/use_missing.txtar) |
 
 ## Ordering the steps
@@ -82,6 +85,8 @@ invalid file per `labels/v1` rule, each with its message.
 
 | Failure | What genx says | Script |
 |---------|----------------|--------|
+| A template the metafile names isn't there | `template: gone.tmpl isn't in the package's directory, next to genx.meta.yaml` | [failures](../internal/e2e/testdata/script/failures.txtar) |
+| A template is a symlink that leads out of the package's directory | `template: openat link.tmpl: path escapes from parent` | [failures](../internal/e2e/testdata/script/failures.txtar) |
 | A query calls `error` (here, i18n-style: one key, two texts) | `units: one key, two texts: title`, then `(input: a/zz_a.labels.json, b/zz_b.labels.json)` | [failures](../internal/e2e/testdata/script/failures.txtar) |
 | The template reads a key the unit lacks | `template: missing.tmpl:5:18: executing "missing.tmpl" at <.kind>: map has no entry for key "kind"` | [failures](../internal/e2e/testdata/script/failures.txtar) |
 | The template makes Go that doesn't parse (the lines around the error follow) | `zz_out.go: 11:1: expected operand, found '}'` | [failures](../internal/e2e/testdata/script/failures.txtar) |
@@ -104,6 +109,7 @@ invalid file per `labels/v1` rule, each with its message.
 | A character outside `A–Z a–z 0–9 . _ -` | `contains invalid character ' '` | [out_refusals](../internal/e2e/testdata/script/out_refusals.txtar) |
 | A Windows reserved name | `"aux" is a reserved name on Windows` | [out_refusals](../internal/e2e/testdata/script/out_refusals.txtar) |
 | Two steps write one file, compared without case | `writes zz_a.go, which example.com/app/gen:upper writes too` | [out_refusals](../internal/e2e/testdata/script/out_refusals.txtar) |
+| A generator's file is one a producer declares, compared without case | `writes zz_Config.json, which producer config writes too` | [out_refusals](../internal/e2e/testdata/script/out_refusals.txtar) |
 | A symlink that leads outside the module | `writing link/zz_x.go:` | [out_refusals](../internal/e2e/testdata/script/out_refusals.txtar) |
 
 ## Files genx didn't write

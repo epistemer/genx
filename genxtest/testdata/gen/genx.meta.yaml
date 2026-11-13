@@ -1,0 +1,26 @@
+version: 1
+generators:
+  list:
+    doc: the producers of every labels file, in input order
+    needs: [labels/v1]
+    units: '{producers: [.["labels/v1"][].producer]}'
+    out: '"zz_list.txt"'
+    template: list.tmpl
+  config:
+    doc: a foreign file's name field
+    needs: [app.config/v1]
+    units: '.["app.config/v1"][] | {name}'
+    out: '"zz_\(.name).txt"'
+    template: name.tmpl
+  emit:
+    doc: a labels file from a config
+    needs: [app.config/v1]
+    emits: labels/v1
+    units: '.["app.config/v1"][] | {domain: "labels/v1", producer: .name, package: {name: "app", dir: "."}, labels: []}'
+    out: '"zz_app.labels.json"'
+  badout:
+    doc: an out that leaves the module
+    needs: [labels/v1]
+    units: '{}'
+    out: '"../zz_x.txt"'
+    template: list.tmpl
