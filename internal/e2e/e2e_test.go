@@ -7,6 +7,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,8 +20,27 @@ import (
 
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
-		"genx": func() { os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr)) },
+		"genx":    func() { os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr)) },
+		"produce": produce,
 	})
+}
+
+// produce is a stand-in producer for scripts: produce src dst copies src to
+// dst, as a program that writes a domain file would.
+func produce() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: produce src dst")
+		os.Exit(2)
+	}
+	b, err := os.ReadFile(os.Args[1])
+	if err == nil {
+		err = os.WriteFile(os.Args[2], b, 0o644)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println("wrote", os.Args[2])
 }
 
 // goEnvKeys lists the Go environment variables copied into each script, so

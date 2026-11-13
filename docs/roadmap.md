@@ -194,11 +194,11 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M2.1 | `internal/manifest`: read and validate the manifest. Unknown fields are errors. Messages carry file and line | M | Table tests for every field and every error |
-| ☐ | M2.2 | `internal/meta`: read and validate a metafile | S | Same |
-| ☐ | M2.3 | `internal/query`: compile and run a jq query on decoded JSON; refuse the functions S2 lists; stop a query at a timeout | M | The refusals and the timeout have tests; a query's `error` reaches the caller with its message |
-| ☐ | M2.4 | `internal/render`: `text/template` that fails on a missing field, then gofmt for `.go` output. Templates are read with CRLF turned into LF. An empty render behaves as M1.6 decided | S | A missing field and a syntax error in generated Go each give a message with the template's name and line |
-| ☐ | M2.5 | `cmd/genx`: run producers in manifest order, then generators; write a file only when its bytes changed, through a temporary file and a rename | M | e2e: a temporary module with a script as producer and a local metafile gets the expected Go file; a second run changes nothing |
+| ☑ | M2.1 | `internal/manifest`: read and validate the manifest. Unknown fields are errors. Messages carry file and line | M | Table tests for every field and every error |
+| ☑ | M2.2 | `internal/meta`: read and validate a metafile | S | Same |
+| ☑ | M2.3 | `internal/query`: compile and run a jq query on decoded JSON; refuse the functions S2 lists; stop a query at a timeout | M | The refusals and the timeout have tests; a query's `error` reaches the caller with its message |
+| ☑ | M2.4 | `internal/render`: `text/template` that fails on a missing field, then gofmt for `.go` output. Templates are read with CRLF turned into LF. An empty render behaves as M1.6 decided | S | A missing field and a syntax error in generated Go each give a message with the template's name and line |
+| ☑ | M2.5 | `cmd/genx`: run producers in manifest order, then generators; write a file only when its bytes changed, through a temporary file and a rename | M | e2e: a temporary module with a script as producer and a local metafile gets the expected Go file; a second run changes nothing |
 
 ---
 

@@ -1,0 +1,5 @@
+# genx needs a manifest at the module root, found from a subdirectory too.
+mkdir sub
+cd sub
+! exec genx
+stderr '^genx: no genx.yaml in the module root '
