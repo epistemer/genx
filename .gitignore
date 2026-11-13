@@ -1,0 +1,10 @@
+# Build and test output
+*.exe
+*.test
+/coverage.out
+
+# Local databases
+*.db
+
+# The binary, built at the root
+/genx
