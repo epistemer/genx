@@ -4,6 +4,27 @@ Newest first. Every working session adds an entry: what landed, the decisions
 taken for you, what's next, and what's waiting on you. The terms are in
 [ownership.md](ownership.md).
 
+## 2026-11-13: M8, cfgx and i18n generate through genx; v0.1.0-rc.3
+
+- **Landed:**
+  - You merged cfgx PR #41 and i18n PR #7 and kept `genxtest`'s API as
+    proposed; it's interface amendment A1.
+  - **M8.2** (in i18n): the `labels` generator and its checks (i18n PR #8),
+    then `examples/basic` through genx (i18n PR #9).
+  - **M8.3** (in cfgx): `App.Labels()` (cfgx PR #42), then `examples/zp`
+    through genx and `App.I18n()` removed (cfgx PR #43). The file genx
+    writes has the declarations cfgx's own did; a test keeps it so.
+  - **M8.4**: [friction.md](friction.md), six entries. The one genx fix:
+    producers saw `go generate`'s `GOPACKAGE`, so cfgx wrote `zz_main.go`
+    (amendment A2, [PR #10](https://github.com/epistemer/genx/pull/10),
+    `v0.1.0-rc.3`). The generator guide gained a recipe for testing what a
+    generator refuses ([PR #11](https://github.com/epistemer/genx/pull/11)).
+- **Reviewed:** Gemini 3.8 Flash (High) reviewed i18n's generator (about
+  228k tokens; 2 of 6 findings taken); Flash (Medium) reviewed cfgx M11.1
+  (about 68k; 4 of 6).
+- **Next:** M9, then `v0.1.0`; i18n `v0.2.0` and cfgx `v0.2.0` follow.
+- **Waiting on you:** deleting the merged branches.
+
 ## 2026-11-13: M2–M7, the driver works; v0.1.0-rc.2
 
 - **Landed:**
