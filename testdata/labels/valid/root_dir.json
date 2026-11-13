@@ -1,0 +1,14 @@
+{
+  "domain": "labels/v1",
+  "producer": "example.com/app/cmd/settings",
+  "package": {
+    "name": "main",
+    "dir": "."
+  },
+  "labels": [
+    {
+      "key": "app.title",
+      "text": "Hello World"
+    }
+  ]
+}

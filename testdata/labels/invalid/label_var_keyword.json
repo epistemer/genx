@@ -1,0 +1,23 @@
+{
+  "domain": "labels/v1",
+  "producer": "test",
+  "package": {
+    "name": "pkg",
+    "dir": "pkg"
+  },
+  "labels": [
+    {
+      "key": "a",
+      "text": "A"
+    },
+    {
+      "key": "b",
+      "text": "B"
+    },
+    {
+      "key": "c",
+      "text": "C",
+      "var": "func"
+    }
+  ]
+}

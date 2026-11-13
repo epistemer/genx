@@ -1,0 +1,28 @@
+{
+  "domain": "labels/v1",
+  "labels": [
+    {
+      "key": "settings.server.port",
+      "path": "server.port",
+      "text": "Listen port",
+      "var": "L10nPort"
+    },
+    {
+      "key": "settings.server.host",
+      "path": "server.host",
+      "text": "Listen address",
+      "var": "L10nHost"
+    },
+    {
+      "key": "settings.log.level",
+      "path": "log.level",
+      "text": "Minimum log level",
+      "var": "L10nLogLevel"
+    }
+  ],
+  "package": {
+    "dir": "internal/settings",
+    "name": "settings"
+  },
+  "producer": "settings"
+}

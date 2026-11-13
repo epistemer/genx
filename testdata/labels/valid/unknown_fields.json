@@ -1,0 +1,17 @@
+{
+  "domain": "labels/v1",
+  "producer": "example.com/app/cmd/settings",
+  "extra_document_field": true,
+  "package": {
+    "name": "settings",
+    "dir": "internal/settings",
+    "extra_package_field": "custom"
+  },
+  "labels": [
+    {
+      "key": "settings.port",
+      "text": "Listening port",
+      "extra_label_field": 12345
+    }
+  ]
+}

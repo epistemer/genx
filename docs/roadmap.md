@@ -254,10 +254,10 @@ thrown away once its ADR is merged.
 
 | ✓ | ID | Item | Size | Done when |
 |---|----|------|------|-----------|
-| ☐ | M7.1 | `labels/v1`: the published JSON Schema, and the driver's own checks on a labels file: required fields, `var` is a Go identifier, `dir` is inside the module | M | Each rule has a failing example |
-| ☐ | M7.2 | Conformance files: valid and invalid labels files that a producer copies into its tests. cfgx M11.1 uses them | S | Published under `testdata/labels/` |
-| ☐ | M7.3 | `genxtest.AssertGenerated(t)` runs `check` from a test. `genxtest.Render` runs one generator on given domain files without a manifest, for golden tests in the generator's own module. i18n M6.1 uses it | M | Both are used by this repository's own example |
-| ☐ | M7.4 | Two guides: writing a producer, and writing a trivial generator | M | Each guide's example runs in CI |
+| ☑ | M7.1 | `labels/v1`: the published JSON Schema, and the driver's own checks on a labels file: required fields, `var` is a Go identifier, `dir` is inside the module | M | Each rule has a failing example |
+| ☑ | M7.2 | Conformance files: valid and invalid labels files that a producer copies into its tests. cfgx M11.1 uses them | S | Published under `testdata/labels/` |
+| ☑ | M7.3 | `genxtest.AssertGenerated(t)` runs `check` from a test. `genxtest.Render` runs one generator on given domain files without a manifest, for golden tests in the generator's own module. i18n M6.1 uses it | M | Both are used by this repository's own example |
+| ☑ | M7.4 | Two guides: writing a producer, and writing a trivial generator | M | Each guide's example runs in CI |
 
 ---
 

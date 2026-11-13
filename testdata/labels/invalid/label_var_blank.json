@@ -1,0 +1,15 @@
+{
+  "domain": "labels/v1",
+  "producer": "test",
+  "package": {
+    "name": "pkg",
+    "dir": "pkg"
+  },
+  "labels": [
+    {
+      "key": "btn.save",
+      "text": "Save",
+      "var": "_"
+    }
+  ]
+}

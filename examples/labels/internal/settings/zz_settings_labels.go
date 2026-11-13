@@ -1,0 +1,20 @@
+// Code generated from labels by github.com/epistemer/genx/examples/labels/gen. DO NOT EDIT.
+
+package settings
+
+// l10n holds every label's text in the source language, by key.
+var l10n = map[string]string{
+	"settings.log.level":   "Minimum log level",
+	"settings.server.host": "Listen address",
+	"settings.server.port": "Listen port",
+}
+
+// L10n returns the text of the label with the key, or "" if there is none.
+func L10n(key string) string { return l10n[key] }
+
+// The keys of the labels that have a name.
+const (
+	L10nLogLevel = "settings.log.level"
+	L10nHost     = "settings.server.host"
+	L10nPort     = "settings.server.port"
+)
