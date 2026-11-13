@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rogpeppe/go-internal/goproxytest"
 	"github.com/rogpeppe/go-internal/testscript"
 
 	"github.com/epistemer/genx/internal/cli"
@@ -109,6 +110,16 @@ func TestScript(t *testing.T) {
 			t.Fatalf("go env: %v", err)
 		}
 	}
+	modDir, err := filepath.Abs(filepath.Join("testdata", "mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := goproxytest.NewServer(modDir, "")
+	if err != nil {
+		t.Fatalf("goproxytest.NewServer: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
 		RequireExplicitExec: true,
@@ -126,6 +137,12 @@ func TestScript(t *testing.T) {
 					e.Setenv(k, v)
 				}
 			}
+			e.Setenv("GOPROXY", srv.URL)
+			e.Setenv("GONOPROXY", "")
+			e.Setenv("GOSUMDB", "off")
+			e.Setenv("GONOSUMDB", "*")
+			e.Setenv("GONOSUMCHECK", "*")
+
 			// Every script is an app module unless it writes its own go.mod.
 			gomod := filepath.Join(e.WorkDir, "go.mod")
 			if _, err := os.Stat(gomod); err == nil {
