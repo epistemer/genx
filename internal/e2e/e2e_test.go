@@ -6,8 +6,10 @@
 package e2e
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -123,6 +125,9 @@ func TestScript(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
 		RequireExplicitExec: true,
+		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
+			"treehash": cmdTreeHash,
+		},
 		// go test ./internal/e2e -update rewrites the files scripts cmp
 		// against; read the diff before committing it.
 		UpdateScripts: golden.Update(),
@@ -151,4 +156,30 @@ func TestScript(t *testing.T) {
 			return os.WriteFile(gomod, []byte("module example.com/app\n\ngo 1.26.0\n"), 0o644)
 		},
 	})
+}
+
+// cmdTreeHash prints one hash of every file under the work directory, with
+// its path, so a script can show a command wrote nothing. Files named
+// treehash-* are left out, so a script can keep the hash in one:
+// treehash; cp stdout treehash-before.
+func cmdTreeHash(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 0 {
+		ts.Fatalf("usage: treehash")
+	}
+	root := ts.MkAbs(".")
+	h := sha256.New()
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || strings.HasPrefix(d.Name(), "treehash-") {
+			return err
+		}
+		rel, _ := filepath.Rel(root, p)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s %x\n", filepath.ToSlash(rel), sha256.Sum256(b))
+		return nil
+	})
+	ts.Check(err)
+	fmt.Fprintf(ts.Stdout(), "%x\n", h.Sum(nil))
 }
