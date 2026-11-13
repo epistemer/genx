@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // out is where the labels go, relative to the module root, where genx runs
@@ -65,6 +66,9 @@ func run(check bool) error {
 			return fmt.Errorf("%s is stale; run genx", out)
 		}
 		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
 	}
 	return os.WriteFile(out, b, 0o644)
 }

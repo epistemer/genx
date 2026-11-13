@@ -13,5 +13,5 @@ import (
 )
 
 func main() {
-	fmt.Println(settings.Texts[settings.L10nPort])
+	fmt.Println(settings.L10n(settings.L10nPort))
 }

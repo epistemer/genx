@@ -4,9 +4,14 @@ generators:
   labels:
     doc: the texts of every label by key, and a constant per key
     needs: [labels/v1]
-    # One unit per package: the labels of all its files, in file order.
+    # One unit per package: the labels of all its files, one per key. The
+    # template declares only each var, L10n and l10n, as labels/v1 allows.
     units: |
       .["labels/v1"] | group_by(.package.dir)[]
-      | {package: .[0].package, labels: [.[].labels[] | {key, text, var: (.var // null)}]}
+      | .[0].package as $package
+      | [.[].labels[] | {key, text, var: (.var // null)}]
+      | (group_by(.key) | map(select(map(.text) | unique | length > 1) | .[0].key)) as $clash
+      | if $clash != [] then error("labels: one key, two texts: \($clash | join(", "))") else . end
+      | {package: $package, labels: unique_by(.key)}
     out: '"\(.package.dir)/zz_\(.package.name)_labels.go"'
     template: labels.go.tmpl

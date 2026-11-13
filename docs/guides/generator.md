@@ -17,8 +17,8 @@ one Go file, which can be empty but for its doc comment.
 <!-- file: gen/gen.go -->
 ```go
 // Package gen ships the example's trivial generator, labels, which turns
-// every labels/v1 file into Go: the texts by key, and a constant for each
-// label's key. It holds no code: genx.meta.yaml and labels.go.tmpl are all
+// every labels/v1 file into Go: L10n, which gives a label's text by key,
+// and a constant for each label's key that has a var. It holds no code: genx.meta.yaml and labels.go.tmpl are all
 // of it. The Go file is here so that the package can be imported, which
 // keeps it in go.mod and in vendor/ (genx ADR 0003).
 package gen
@@ -34,10 +34,15 @@ generators:
   labels:
     doc: the texts of every label by key, and a constant per key
     needs: [labels/v1]
-    # One unit per package: the labels of all its files, in file order.
+    # One unit per package: the labels of all its files, one per key. The
+    # template declares only each var, L10n and l10n, as labels/v1 allows.
     units: |
       .["labels/v1"] | group_by(.package.dir)[]
-      | {package: .[0].package, labels: [.[].labels[] | {key, text, var: (.var // null)}]}
+      | .[0].package as $package
+      | [.[].labels[] | {key, text, var: (.var // null)}]
+      | (group_by(.key) | map(select(map(.text) | unique | length > 1) | .[0].key)) as $clash
+      | if $clash != [] then error("labels: one key, two texts: \($clash | join(", "))") else . end
+      | {package: $package, labels: unique_by(.key)}
     out: '"\(.package.dir)/zz_\(.package.name)_labels.go"'
     template: labels.go.tmpl
 ```
@@ -65,12 +70,15 @@ generators:
 
 package {{.package.name}}
 
-// Texts holds every label's text in the source language, by key.
-var Texts = map[string]string{
+// l10n holds every label's text in the source language, by key.
+var l10n = map[string]string{
 {{- range .labels}}
 	{{printf "%q" .key}}: {{printf "%q" .text}},
 {{- end}}
 }
+
+// L10n returns the text of the label with the key, or "" if there is none.
+func L10n(key string) string { return l10n[key] }
 
 // The keys of the labels that have a name.
 const (
@@ -85,7 +93,9 @@ const (
 - `text/template` with no added functions. genx formats `.go` output with
   gofmt, so don't fuss over spacing.
 - Several producers can feed one package, so declare nothing but what the
-  domain lets you: for labels, each `var`, `L10n` and `l10n` (§11).
+  domain lets you: for labels, each `var`, `L10n` and `l10n` (§11). The
+  example's `l10n` map would not compile with one key twice, so its query
+  keeps one label per key and refuses one key with two texts.
 
 ## 4. Test it without an app
 

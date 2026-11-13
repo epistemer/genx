@@ -2,12 +2,15 @@
 
 package {{.package.name}}
 
-// Texts holds every label's text in the source language, by key.
-var Texts = map[string]string{
+// l10n holds every label's text in the source language, by key.
+var l10n = map[string]string{
 {{- range .labels}}
 	{{printf "%q" .key}}: {{printf "%q" .text}},
 {{- end}}
 }
+
+// L10n returns the text of the label with the key, or "" if there is none.
+func L10n(key string) string { return l10n[key] }
 
 // The keys of the labels that have a name.
 const (

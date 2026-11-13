@@ -22,10 +22,11 @@ func AssertGenerated(t testing.TB) {
 	}
 	var out strings.Builder
 	err = run.Check(context.Background(), run.Options{Dir: dir, Stdout: &out, Stderr: &out})
-	if s := strings.TrimSpace(out.String()); s != "" {
-		t.Log(s)
-	}
 	if err != nil {
+		// What the producers' check commands printed explains the failure.
+		if s := strings.TrimSpace(out.String()); s != "" {
+			t.Fatalf("genx check: %v\n%s", err, s)
+		}
 		t.Fatalf("genx check: %v", err)
 	}
 }

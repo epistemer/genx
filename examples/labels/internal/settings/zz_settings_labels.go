@@ -2,16 +2,19 @@
 
 package settings
 
-// Texts holds every label's text in the source language, by key.
-var Texts = map[string]string{
-	"settings.server.port": "Listen port",
-	"settings.server.host": "Listen address",
+// l10n holds every label's text in the source language, by key.
+var l10n = map[string]string{
 	"settings.log.level":   "Minimum log level",
+	"settings.server.host": "Listen address",
+	"settings.server.port": "Listen port",
 }
+
+// L10n returns the text of the label with the key, or "" if there is none.
+func L10n(key string) string { return l10n[key] }
 
 // The keys of the labels that have a name.
 const (
-	L10nPort     = "settings.server.port"
-	L10nHost     = "settings.server.host"
 	L10nLogLevel = "settings.log.level"
+	L10nHost     = "settings.server.host"
+	L10nPort     = "settings.server.port"
 )
