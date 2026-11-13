@@ -210,6 +210,19 @@ conversation.
 | 7 | Build the driver with the third generator (models and enums) | Build it now, with cfgx's labels as the first user | That case already exists with a known-good output, so "same declarations as before" is a test. The sqlc generators come second and prove foreign files |
 | 8 | Metafiles could live anywhere in a module | Where they live is a spike | `go mod vendor` copies package directories only. A folder of YAML and templates would not be vendored |
 
+### Changes from the driver's design review
+
+[Review 0002](../reviews/0002-gemini-design-review.md) (roadmap M0.5) changed
+four details. None changes the direction; the roadmap carries each into an
+item.
+
+| # | Before | After | Why |
+|---|--------|-------|-----|
+| 9 | A generator's input is an array for one domain, an object for several | Always an object keyed by domain | Adding a second domain would otherwise break every query of the generator |
+| 10 | A generator that writes a domain file is known by its output | It declares `emits: [<domain>]` | The plan must order it before its readers without running it |
+| 11 | A template writes the domain file | genx encodes the query's result as JSON | A template can't escape JSON without a function, and the result must be deterministic |
+| 12 | Output stays inside the module | It also stays out of dot-directories and module files, goes through `os.Root`, and follows one set of path rules on every OS | A dependency's generator must not write `.git/hooks` or a workflow, nor escape through a symlink |
+
 One correction to an earlier claim: the zp generators that declare i18n keys
 are enum, meta, error and routes. svg writes only static labels.
 
