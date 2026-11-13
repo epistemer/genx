@@ -68,6 +68,12 @@ func produce() {
 		fmt.Fprintln(os.Stderr, "usage: produce src dst")
 		os.Exit(2)
 	}
+	// Under go generate, genx must not pass on the variables that describe
+	// its own directive (interface amendment A2).
+	if p := os.Getenv("GOPACKAGE"); p != "" {
+		fmt.Fprintln(os.Stderr, "produce: GOPACKAGE is set to", p)
+		os.Exit(1)
+	}
 	b, err := os.ReadFile(os.Args[1])
 	if err == nil {
 		err = os.MkdirAll(filepath.Dir(os.Args[2]), 0o755)

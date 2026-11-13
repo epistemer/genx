@@ -235,7 +235,8 @@ models/zz_enums.labels.json example.com/app/internal/gen:enum-labels
   producers in their order, then generators in `use` order. A domain that a
   step needs and no step writes, a cycle, or two steps writing one file is
   an error.
-- **Producers** run with the environment genx has, in their `dir`, with their
+- **Producers** run with the environment genx has, less the variables
+  `go generate` sets for its directive (A2), in their `dir`, with their
   output prefixed by `<name>: `. After `run`, and under `check`, each
   declared file must exist, hold one JSON or YAML value, and, unless it's a
   foreign file, name its domain in a `domain` field.
@@ -324,3 +325,13 @@ func Render(t testing.TB, dir, generator string, inputs ...Input) map[string][]b
 
 A way to test a generator's failures (`RenderErr`, from review 0008) was
 considered and left out.
+
+### A2. Producers don't see go generate's variables (2026-11-13, M8.4)
+
+§9 says producers run with the environment genx has. Under `go generate`
+that includes `GOFILE`, `GOLINE`, `GOPACKAGE` and `DOLLAR`, which describe
+genx's directive. A producer that reads them writes into the wrong package:
+cfgx, run for `internal/settings` from a directive in `package main`, wrote
+`zz_main.go`. genx now runs producers without those four variables. A
+clarification: a producer was never meant to see another directive's
+location.

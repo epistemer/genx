@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -68,6 +69,7 @@ func (s *state) command(p manifest.Producer, argv []string) error {
 
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = filepath.Join(s.rootDir, filepath.FromSlash(p.Dir))
+	cmd.Env = producerEnv(os.Environ())
 	var mu sync.Mutex
 	stdout := &prefixWriter{w: s.opts.Stdout, prefix: p.Name + ": ", mu: &mu}
 	stderr := &prefixWriter{w: s.opts.Stderr, prefix: p.Name + ": ", mu: &mu}
@@ -85,6 +87,24 @@ func (s *state) command(p manifest.Producer, argv []string) error {
 		return fmt.Errorf("%s: %s: %w", step, strings.Join(argv, " "), err)
 	}
 	return nil
+}
+
+// goGenerateVars are the variables go generate sets to describe where its
+// directive is. Under go generate they describe genx's directive, not the
+// producer, and a producer that reads them (cfgx takes its package name from
+// GOPACKAGE) would write into the wrong package (interface amendment A2).
+var goGenerateVars = []string{"GOFILE", "GOLINE", "GOPACKAGE", "DOLLAR"}
+
+// producerEnv is genx's environment without goGenerateVars.
+func producerEnv(env []string) []string {
+	out := env[:0:0]
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		if !slices.Contains(goGenerateVars, name) {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 // readEmits reads every file a producer declared, and returns their domains.
