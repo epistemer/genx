@@ -87,6 +87,6 @@ genx: producer lazy: zz_x.labels.json: declared in emits, but the producer didn'
 -- want/nodomain.txt --
 genx: producer plain: zz_x.labels.json: no "domain" field (a foreign file needs "domain" in the manifest)
 -- want/major.txt --
-genx: example.com/app/gen:read needs labels/v1, but producer new writes labels/v2
+genx: example.com/app/gen:read needs labels/v1, but a/zz_a.labels.json from producer new says labels/v2; upgrade the module that writes it, or the one that reads it
 -- want/slow.txt --
 genx: producer slow: timed out after 200ms

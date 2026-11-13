@@ -1,6 +1,7 @@
 package plan_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -599,5 +600,35 @@ func TestNeedNeverWrittenFailsAtTheEnd(t *testing.T) {
 	want := "gen needs labels/v1, which no step writes"
 	if err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %q", err, want)
+	}
+}
+
+func TestMismatchErrorType(t *testing.T) {
+	steps := []plan.Step{
+		{Name: "prod", Writes: []domain.Domain{d("labels", 2)}, Known: true},
+		{Name: "gen", Needs: []domain.Domain{d("labels", 1)}, Known: true},
+	}
+	p, err := plan.New(steps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, ok, err := p.Next()
+	if err != nil || !ok || i != 0 {
+		t.Fatalf("Next = %d, %v, %v", i, ok, err)
+	}
+	if err := p.Done(i, steps[i].Writes); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = p.Next()
+	var mm *plan.MismatchError
+	if !errors.As(err, &mm) {
+		t.Fatalf("err is not *plan.MismatchError: %v", err)
+	}
+	if mm.Step != "gen" || mm.Writer != "prod" || mm.Need != d("labels", 1) || mm.Wrote != d("labels", 2) {
+		t.Fatalf("unexpected MismatchError: %+v", mm)
+	}
+	want := "gen needs labels/v1, but prod writes labels/v2"
+	if mm.Error() != want {
+		t.Fatalf("mm.Error() = %q, want %q", mm.Error(), want)
 	}
 }

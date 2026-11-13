@@ -9,6 +9,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
+	"strings"
 
 	"github.com/epistemer/genx/internal/domain"
 	"github.com/epistemer/genx/internal/manifest"
@@ -43,6 +46,10 @@ func Run(ctx context.Context, opts Options) error {
 	for {
 		i, ok, err := pl.Next()
 		if err != nil {
+			var mm *plan.MismatchError
+			if errors.As(err, &mm) {
+				return s.mismatchError(mm)
+			}
 			return err
 		}
 		if !ok {
@@ -63,6 +70,32 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 	return s.write()
+}
+
+// mismatchError names the files behind a major-version mismatch
+// (interface.md §10).
+func (s *state) mismatchError(mm *plan.MismatchError) error {
+	var files []string
+	for k, docs := range s.docs {
+		d, err := domain.Parse(k)
+		if err == nil && d.Name == mm.Need.Name && d.Major == mm.Wrote.Major {
+			for _, doc := range docs {
+				files = append(files, filepath.ToSlash(doc.path))
+			}
+		}
+	}
+	sort.Strings(files)
+	files = slices.Compact(files)
+	fileList := strings.Join(files, ", ")
+	if fileList == "" {
+		return mm
+	}
+	verb := "says"
+	if len(files) > 1 {
+		verb = "say"
+	}
+	return fmt.Errorf("%s needs %s, but %s from %s %s %s; upgrade the module that writes it, or the one that reads it",
+		mm.Step, mm.Need, fileList, mm.Writer, verb, mm.Wrote)
 }
 
 // load finds the module root, reads and checks the manifest, claims every

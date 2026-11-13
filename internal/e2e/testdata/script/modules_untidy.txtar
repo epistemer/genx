@@ -1,0 +1,34 @@
+# M6.1: the app requires the module but nothing imports it.
+# go mod tidy drops it -> genx fails with the blank-import advice.
+
+exec go mod download
+exec go mod tidy
+! exec genx
+cmp stderr want/stderr.txt
+
+-- go.mod --
+module example.com/app
+
+go 1.26.0
+
+require example.com/labels v1.0.0
+-- app.go --
+package app
+-- genx.yaml --
+version: 1
+
+use:
+  - example.com/labels: [consts]
+-- want/stderr.txt --
+genx: use example.com/labels: the go command can't find this package: no required module provides package example.com/labels; to add it:
+	go get example.com/labels
+If nothing in the app imports it yet, go mod tidy removed it from go.mod, and go mod vendor didn't copy it.
+Keep a file in the app with a blank import, which the build leaves out:
+
+	//go:build genx
+
+	package <name>
+
+	import _ "example.com/labels"
+
+then run go get example.com/labels

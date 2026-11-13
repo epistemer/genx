@@ -242,6 +242,19 @@ func (p *Plan) checkAllWritten() error {
 	return nil
 }
 
+// MismatchError is returned when a step needs a domain that another step writes
+// in a different major version.
+type MismatchError struct {
+	Step   string
+	Writer string
+	Need   domain.Domain
+	Wrote  domain.Domain
+}
+
+func (e *MismatchError) Error() string {
+	return fmt.Sprintf("%s needs %s, but %s writes %s", e.Step, e.Need, e.Writer, e.Wrote)
+}
+
 // missing reports a need nothing writes, naming a writer of another major
 // version when there is one.
 func (p *Plan) missing(i int, d domain.Domain) error {
@@ -256,7 +269,12 @@ func (p *Plan) missing(i int, d domain.Domain) error {
 		}
 		for _, x := range writes {
 			if x.Name == d.Name && x.Major != d.Major {
-				return fmt.Errorf("%s needs %s, but %s writes %s", name, d, p.steps[w].Name, x)
+				return &MismatchError{
+					Step:   name,
+					Writer: p.steps[w].Name,
+					Need:   d,
+					Wrote:  x,
+				}
 			}
 		}
 	}
