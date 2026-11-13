@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -360,281 +361,60 @@ func Encode(v any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func walkQuery(q *gojq.Query) (string, string) {
-	if q == nil {
-		return "", ""
-	}
-	for _, im := range q.Imports {
-		if im.IncludePath != "" {
-			return "include", forbiddenReasons["include"]
-		}
-		return "import", forbiddenReasons["import"]
-	}
-	for _, fd := range q.FuncDefs {
-		if reason, ok := forbiddenReasons[fd.Name]; ok {
-			return fd.Name, reason
-		}
-		for _, arg := range fd.Args {
-			if reason, ok := forbiddenReasons[arg]; ok {
-				return arg, reason
+// walkQuery finds the first refused function, variable or directive in q. It
+// walks every exported field of the parsed query by reflection, so a part of
+// gojq's syntax tree it doesn't name can't hide a call.
+func walkQuery(q *gojq.Query) (item, reason string) {
+	var walk func(v reflect.Value) bool
+	walk = func(v reflect.Value) bool {
+		switch v.Kind() {
+		case reflect.Pointer:
+			if v.IsNil() {
+				return false
 			}
-		}
-		if item, reason := walkQuery(fd.Body); item != "" {
-			return item, reason
-		}
-	}
-	if item, reason := walkQuery(q.Left); item != "" {
-		return item, reason
-	}
-	for _, p := range q.Patterns {
-		if item, reason := walkPattern(p); item != "" {
-			return item, reason
-		}
-	}
-	if item, reason := walkQuery(q.Right); item != "" {
-		return item, reason
-	}
-	if q.Term != nil {
-		if item, reason := walkTerm(q.Term); item != "" {
-			return item, reason
-		}
-	}
-	return "", ""
-}
-
-func walkPattern(p *gojq.Pattern) (string, string) {
-	if p == nil {
-		return "", ""
-	}
-	if reason, ok := forbiddenReasons[p.Name]; ok {
-		return p.Name, reason
-	}
-	for _, elem := range p.Array {
-		if item, reason := walkPattern(elem); item != "" {
-			return item, reason
-		}
-	}
-	for _, obj := range p.Object {
-		if reason, ok := forbiddenReasons[obj.Key]; ok {
-			return obj.Key, reason
-		}
-		if obj.KeyString != nil {
-			for _, sq := range obj.KeyString.Queries {
-				if item, reason := walkQuery(sq); item != "" {
-					return item, reason
+			name := ""
+			switch x := v.Interface().(type) {
+			case *gojq.Import:
+				name = "import"
+				if x.IncludePath != "" {
+					name = "include"
 				}
-			}
-		}
-		if obj.KeyQuery != nil {
-			if item, reason := walkQuery(obj.KeyQuery); item != "" {
-				return item, reason
-			}
-		}
-		if obj.Val != nil {
-			if item, reason := walkPattern(obj.Val); item != "" {
-				return item, reason
-			}
-		}
-	}
-	return "", ""
-}
-
-func walkTerm(t *gojq.Term) (string, string) {
-	if t == nil {
-		return "", ""
-	}
-	for _, s := range t.SuffixList {
-		if s.Index != nil {
-			if item, reason := walkIndex(s.Index); item != "" {
-				return item, reason
-			}
-		}
-	}
-	switch t.Type {
-	case gojq.TermTypeFunc:
-		if t.Func != nil {
-			if reason, ok := forbiddenReasons[t.Func.Name]; ok {
-				return t.Func.Name, reason
-			}
-			for _, arg := range t.Func.Args {
-				if item, reason := walkQuery(arg); item != "" {
-					return item, reason
-				}
-			}
-		}
-	case gojq.TermTypeFormat:
-		name := strings.TrimPrefix(t.Format, "@")
-		if reason, ok := forbiddenReasons[name]; ok {
-			return name, reason
-		}
-		if t.Str != nil {
-			for _, sq := range t.Str.Queries {
-				if item, reason := walkQuery(sq); item != "" {
-					return item, reason
-				}
-			}
-		}
-	case gojq.TermTypeIndex:
-		if item, reason := walkIndex(t.Index); item != "" {
-			return item, reason
-		}
-	case gojq.TermTypeObject:
-		if t.Object != nil {
-			for _, kv := range t.Object.KeyVals {
-				if kv.KeyQuery != nil {
-					if item, reason := walkQuery(kv.KeyQuery); item != "" {
-						return item, reason
+			case *gojq.Func:
+				name = x.Name
+			case *gojq.FuncDef:
+				name = x.Name
+				for _, arg := range x.Args {
+					if _, ok := forbiddenReasons[arg]; ok {
+						name = arg
 					}
 				}
-				if kv.KeyString != nil {
-					for _, sq := range kv.KeyString.Queries {
-						if item, reason := walkQuery(sq); item != "" {
-							return item, reason
-						}
-					}
+			case *gojq.Pattern:
+				name = x.Name
+			case *gojq.ObjectKeyVal:
+				name = x.Key // {$ENV} is shorthand for {ENV: $ENV}
+			case *gojq.PatternObject:
+				name = x.Key
+			}
+			if r, ok := forbiddenReasons[name]; ok {
+				item, reason = name, r
+				return true
+			}
+			return walk(v.Elem())
+		case reflect.Struct:
+			for i := range v.NumField() {
+				if v.Type().Field(i).IsExported() && walk(v.Field(i)) {
+					return true
 				}
-				if kv.Val != nil {
-					if item, reason := walkQuery(kv.Val); item != "" {
-						return item, reason
-					}
-				}
 			}
-		}
-	case gojq.TermTypeArray:
-		if t.Array != nil && t.Array.Query != nil {
-			if item, reason := walkQuery(t.Array.Query); item != "" {
-				return item, reason
-			}
-		}
-	case gojq.TermTypeUnary:
-		if t.Unary != nil && t.Unary.Term != nil {
-			if item, reason := walkTerm(t.Unary.Term); item != "" {
-				return item, reason
-			}
-		}
-	case gojq.TermTypeString:
-		if t.Str != nil {
-			for _, sq := range t.Str.Queries {
-				if item, reason := walkQuery(sq); item != "" {
-					return item, reason
+		case reflect.Slice:
+			for i := range v.Len() {
+				if walk(v.Index(i)) {
+					return true
 				}
 			}
 		}
-	case gojq.TermTypeIf:
-		if t.If != nil {
-			if item, reason := walkQuery(t.If.Cond); item != "" {
-				return item, reason
-			}
-			if item, reason := walkQuery(t.If.Then); item != "" {
-				return item, reason
-			}
-			for _, elif := range t.If.Elif {
-				if item, reason := walkQuery(elif.Cond); item != "" {
-					return item, reason
-				}
-				if item, reason := walkQuery(elif.Then); item != "" {
-					return item, reason
-				}
-			}
-			if t.If.Else != nil {
-				if item, reason := walkQuery(t.If.Else); item != "" {
-					return item, reason
-				}
-			}
-		}
-	case gojq.TermTypeTry:
-		if t.Try != nil {
-			if item, reason := walkQuery(t.Try.Body); item != "" {
-				return item, reason
-			}
-			if t.Try.Catch != nil {
-				if item, reason := walkQuery(t.Try.Catch); item != "" {
-					return item, reason
-				}
-			}
-		}
-	case gojq.TermTypeReduce:
-		if t.Reduce != nil {
-			if item, reason := walkQuery(t.Reduce.Query); item != "" {
-				return item, reason
-			}
-			for _, p := range t.Reduce.Patterns {
-				if item, reason := walkPattern(p); item != "" {
-					return item, reason
-				}
-			}
-			if item, reason := walkQuery(t.Reduce.Start); item != "" {
-				return item, reason
-			}
-			if item, reason := walkQuery(t.Reduce.Update); item != "" {
-				return item, reason
-			}
-		}
-	case gojq.TermTypeForeach:
-		if t.Foreach != nil {
-			if item, reason := walkQuery(t.Foreach.Query); item != "" {
-				return item, reason
-			}
-			for _, p := range t.Foreach.Patterns {
-				if item, reason := walkPattern(p); item != "" {
-					return item, reason
-				}
-			}
-			if item, reason := walkQuery(t.Foreach.Start); item != "" {
-				return item, reason
-			}
-			if item, reason := walkQuery(t.Foreach.Update); item != "" {
-				return item, reason
-			}
-			if t.Foreach.Extract != nil {
-				if item, reason := walkQuery(t.Foreach.Extract); item != "" {
-					return item, reason
-				}
-			}
-		}
-	case gojq.TermTypeLabel:
-		if t.Label != nil {
-			if reason, ok := forbiddenReasons[t.Label.Ident]; ok {
-				return t.Label.Ident, reason
-			}
-			if item, reason := walkQuery(t.Label.Body); item != "" {
-				return item, reason
-			}
-		}
-	case gojq.TermTypeBreak:
-		if reason, ok := forbiddenReasons[t.Break]; ok {
-			return t.Break, reason
-		}
-	case gojq.TermTypeQuery:
-		if t.Query != nil {
-			if item, reason := walkQuery(t.Query); item != "" {
-				return item, reason
-			}
-		}
+		return false
 	}
-	return "", ""
-}
-
-func walkIndex(idx *gojq.Index) (string, string) {
-	if idx == nil {
-		return "", ""
-	}
-	if idx.Str != nil {
-		for _, sq := range idx.Str.Queries {
-			if item, reason := walkQuery(sq); item != "" {
-				return item, reason
-			}
-		}
-	}
-	if idx.Start != nil {
-		if item, reason := walkQuery(idx.Start); item != "" {
-			return item, reason
-		}
-	}
-	if idx.End != nil {
-		if item, reason := walkQuery(idx.End); item != "" {
-			return item, reason
-		}
-	}
-	return "", ""
+	walk(reflect.ValueOf(q))
+	return item, reason
 }
