@@ -3,8 +3,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
+
+	"github.com/epistemer/genx/internal/run"
 )
 
 const usage = `genx runs an app's code generation: producers, then trivial generators.
@@ -21,7 +25,15 @@ Usage:
 // process exit code: 0 on success, 1 when a command fails, 2 on bad usage.
 func Main(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		return notYet(stderr, "genx")
+		dir, err := os.Getwd()
+		if err == nil {
+			err = run.Run(context.Background(), run.Options{Dir: dir, Stdout: stdout, Stderr: stderr})
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "genx: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	switch args[0] {
 	case "help", "-h", "-help", "--help":

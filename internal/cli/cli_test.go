@@ -16,7 +16,6 @@ func TestMainExitCodes(t *testing.T) {
 		{args: []string{"help"}, code: 0, stdout: usage},
 		{args: []string{"-h"}, code: 0, stdout: usage},
 		{args: []string{"frobnicate"}, code: 2, stderrPart: `genx: unknown command "frobnicate"`},
-		{args: nil, code: 1, stderrPart: "genx: not implemented yet"},
 		{args: []string{"check"}, code: 1, stderrPart: "genx check: not implemented yet"},
 		{args: []string{"list"}, code: 1, stderrPart: "genx list: not implemented yet"},
 	}
