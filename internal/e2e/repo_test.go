@@ -46,7 +46,7 @@ func TestFailureChecklist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := regexp.MustCompile("^\\| (.+?) \\| (.+) \\| \\[(\\w+)\\]\\(\\.\\./internal/e2e/testdata/script/(\\w+)\\.txtar\\) \\|$")
+	row := regexp.MustCompile(`^\| (.+?) \| (.+) \| \[(\w+)\]\(\.\./internal/e2e/testdata/script/(\w+)\.txtar\) \|$`)
 	code := regexp.MustCompile("`([^`]+)`")
 	rows := 0
 	for n, line := range strings.Split(string(b), "\n") {

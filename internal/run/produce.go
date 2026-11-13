@@ -84,7 +84,7 @@ func (s *state) command(p manifest.Producer, argv []string) error {
 		return fmt.Errorf("%s: timed out after %s (raise its timeout in %s)", step, p.Timeout, ManifestFile)
 	}
 	if errors.Is(err, exec.ErrNotFound) {
-		return fmt.Errorf("%s: %s: %w (install it, or run a module's tool with [go, tool, ...])", step, strings.Join(argv, " "), err)
+		return fmt.Errorf("%s: %s: %q isn't installed, or isn't on PATH; install it, or run a module's tool with [go, tool, ...]", step, strings.Join(argv, " "), argv[0])
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %s: %w", step, strings.Join(argv, " "), err)

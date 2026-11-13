@@ -68,7 +68,7 @@ the same form; `internal/manifest` and `internal/meta` test each one.
 | Failure | What genx says | Script |
 |---------|----------------|--------|
 | The command fails (its output is shown first, prefixed with its name) | `producer broken: fail some args: exit status 3` | [producers](../internal/e2e/testdata/script/producers.txtar) |
-| The command isn't installed | `executable file not found in $PATH (install it, or run a module's tool with [go, tool, ...])` | [producers](../internal/e2e/testdata/script/producers.txtar) |
+| The command isn't installed | `"genx-no-such-command" isn't installed, or isn't on PATH; install it, or run a module's tool with [go, tool, ...]` | [producers](../internal/e2e/testdata/script/producers.txtar) |
 | It runs past its timeout | `timed out after 200ms (raise its timeout in genx.yaml)` | [producers](../internal/e2e/testdata/script/producers.txtar) |
 | It didn't write a file it declares | `declared in emits, but the producer didn't write it` | [producers](../internal/e2e/testdata/script/producers.txtar) |
 | A declared file isn't a JSON object | `not an object, so it can't name its domain (a foreign file needs "domain" in the manifest)` | [producers](../internal/e2e/testdata/script/producers.txtar) |
