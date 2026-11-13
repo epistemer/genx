@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -53,7 +54,9 @@ func (s *state) writeFile(p string, data []byte) error {
 		werr = s.root.Rename(tmp, filepath.FromSlash(p))
 	}
 	if werr != nil {
-		s.root.Remove(tmp)
+		if rerr := s.root.Remove(tmp); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+			werr = errors.Join(werr, fmt.Errorf("removing the temporary file %s: %w", filepath.ToSlash(tmp), rerr))
+		}
 	}
 	return werr
 }

@@ -32,6 +32,9 @@ func (s *state) produce(p manifest.Producer) error {
 	err := cmd.Run()
 	cmd.Stdout.(*prefixWriter).flush()
 	cmd.Stderr.(*prefixWriter).flush()
+	if s.ctx.Err() != nil {
+		return s.ctx.Err()
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("%s: timed out after %s", step, p.Timeout)
 	}
@@ -40,9 +43,6 @@ func (s *state) produce(p manifest.Producer) error {
 	}
 
 	for _, e := range p.Emits {
-		if err := s.claim(e.Path, step); err != nil {
-			return err
-		}
 		v, d, err := s.readDomainFile(e)
 		if err != nil {
 			return fmt.Errorf("%s: %w", step, err)
@@ -124,7 +124,7 @@ func (p *prefixWriter) Write(b []byte) (int, error) {
 		}
 		line := p.buf.Next(i + 1)
 		if _, err := fmt.Fprintf(p.w, "%s%s", p.prefix, line); err != nil {
-			return len(b), err
+			return 0, err
 		}
 	}
 }

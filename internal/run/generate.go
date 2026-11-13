@@ -26,15 +26,15 @@ func (s *state) generate(g generator) error {
 	input, files := s.input(g)
 	units, err := g.units.Run(ctx, input)
 	if err != nil {
-		return s.queryError(g, "units", err, files)
+		return s.queryError(ctx, g, "units", err, files)
 	}
 	for _, unit := range units {
-		if ctx.Err() != nil {
-			return fmt.Errorf("%s: timed out after %s", g.step, GeneratorTimeout)
+		if err := s.timedOut(ctx, g); err != nil {
+			return err
 		}
 		vals, err := g.out.Run(ctx, unit)
 		if err != nil {
-			return s.queryError(g, "out", err, files)
+			return s.queryError(ctx, g, "out", err, files)
 		}
 		if len(vals) != 1 {
 			return fmt.Errorf("%s: out gave %d values for a unit; it must give one path", g.step, len(vals))
@@ -50,6 +50,9 @@ func (s *state) generate(g generator) error {
 
 		var data []byte
 		if g.template == nil {
+			if err := s.claim(p, g.step); err != nil {
+				return err
+			}
 			if data, err = s.emit(g, p, unit); err != nil {
 				return err
 			}
@@ -65,10 +68,10 @@ func (s *state) generate(g generator) error {
 			if empty {
 				continue
 			}
+			if err := s.claim(p, g.step); err != nil {
+				return err
+			}
 			data = b
-		}
-		if err := s.claim(p, g.step); err != nil {
-			return err
 		}
 		s.outputs = append(s.outputs, output{path: p, data: data, step: g.step})
 	}
@@ -118,8 +121,22 @@ func (s *state) emit(g generator, p string, unit any) ([]byte, error) {
 	return data, nil
 }
 
+// timedOut reports the run's own cancellation, or the generator's timeout.
+func (s *state) timedOut(ctx context.Context, g generator) error {
+	if s.ctx.Err() != nil {
+		return s.ctx.Err()
+	}
+	if ctx.Err() != nil {
+		return fmt.Errorf("%s: timed out after %s", g.step, GeneratorTimeout)
+	}
+	return nil
+}
+
 // queryError names the generator and its input files with a query's error.
-func (s *state) queryError(g generator, which string, err error, files []string) error {
+func (s *state) queryError(ctx context.Context, g generator, which string, err error, files []string) error {
+	if terr := s.timedOut(ctx, g); terr != nil {
+		return terr
+	}
 	var qe *query.Error
 	if errors.As(err, &qe) {
 		in := "no input files"

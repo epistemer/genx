@@ -1,0 +1,10 @@
+# A use entry the go command can't find gets the blank-import advice.
+! exec genx
+stderr '^genx: use example.com/nowhere: the go command can''t find this package: '
+stderr '^\timport _ "example.com/nowhere"$'
+! stdout .
+
+-- genx.yaml --
+version: 1
+use:
+  - example.com/nowhere: [labels]

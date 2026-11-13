@@ -2,6 +2,7 @@ package run
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -71,7 +72,7 @@ func compileUse(u manifest.Use, dir string) ([]generator, error) {
 // packageDirs lists the packages' directories with the go command, which
 // applies the module's replace directives, go.work and -mod=vendor.
 func (s *state) packageDirs(uses []manifest.Use) (map[string]string, error) {
-	args := []string{"list", "-e", "-f", "{{.ImportPath}}\t{{.Dir}}\t{{if .Error}}{{.Error.Err}}{{end}}"}
+	args := []string{"list", "-e", "-json=ImportPath,Dir,Error"}
 	seen := map[string]bool{}
 	for _, u := range uses {
 		if !seen[u.Package] {
@@ -87,25 +88,40 @@ func (s *state) packageDirs(uses []manifest.Use) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("go list: %v\n%s", err, strings.TrimSpace(stderr.String()))
 	}
-	dirs := map[string]string{}
-	for line := range strings.Lines(string(out)) {
-		f := strings.SplitN(strings.TrimRight(line, "\r\n"), "\t", 3)
-		if len(f) != 3 {
-			continue
+	type listed struct {
+		ImportPath string
+		Dir        string
+		Error      *struct{ Err string }
+	}
+	pkgs := map[string]listed{}
+	dec := json.NewDecoder(bytes.NewReader(out))
+	for dec.More() {
+		var p listed
+		if err := dec.Decode(&p); err != nil {
+			return nil, fmt.Errorf("go list: %w", err)
 		}
-		if f[2] != "" || f[1] == "" {
+		pkgs[p.ImportPath] = p
+	}
+	dirs := map[string]string{}
+	for _, u := range uses {
+		p, ok := pkgs[u.Package]
+		switch {
+		case !ok:
+			return nil, fmt.Errorf("use %s: go list didn't report this package", u.Package)
+		case p.Dir == "":
+			reason := "not found"
+			if p.Error != nil {
+				reason = strings.TrimSpace(p.Error.Err)
+			}
 			return nil, fmt.Errorf("use %s: the go command can't find this package: %s\n"+
 				"If nothing in the app imports it yet, go mod tidy removed it from go.mod, and go mod vendor didn't copy it.\n"+
 				"Keep a file in the app with a blank import, which the build leaves out:\n\n"+
 				"\t//go:build genx\n\n\tpackage <name>\n\n\timport _ %q\n\n"+
-				"then run go get %s", f[0], strings.TrimSpace(f[2]), f[0], f[0])
+				"then run go get %s", u.Package, reason, u.Package, u.Package)
+		case p.Error != nil:
+			return nil, fmt.Errorf("use %s: %s", u.Package, strings.TrimSpace(p.Error.Err))
 		}
-		dirs[f[0]] = f[1]
-	}
-	for p := range seen {
-		if dirs[p] == "" {
-			return nil, fmt.Errorf("use %s: go list didn't report this package", p)
-		}
+		dirs[u.Package] = p.Dir
 	}
 	return dirs, nil
 }

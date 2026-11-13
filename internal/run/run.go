@@ -28,6 +28,12 @@ type Options struct {
 
 // Run runs every step of the manifest at the module root above opts.Dir.
 func Run(ctx context.Context, opts Options) error {
+	if opts.Stdout == nil {
+		opts.Stdout = io.Discard
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = io.Discard
+	}
 	rootDir, err := FindRoot(opts.Dir)
 	if err != nil {
 		return err
@@ -58,6 +64,14 @@ func Run(ctx context.Context, opts Options) error {
 		docs:    map[string][]document{},
 		owners:  map[string]string{},
 	}
+	// Every path a producer declares is known before anything runs.
+	for _, p := range m.Producers {
+		for _, e := range p.Emits {
+			if err := s.claim(e.Path, "producer "+p.Name); err != nil {
+				return err
+			}
+		}
+	}
 	for _, p := range m.Producers {
 		if err := s.produce(p); err != nil {
 			return err
@@ -83,7 +97,7 @@ func FindRoot(dir string) (string, error) {
 		return "", err
 	}
 	for d := dir; ; {
-		if _, err := os.Stat(filepath.Join(d, "go.mod")); err == nil {
+		if fi, err := os.Stat(filepath.Join(d, "go.mod")); err == nil && !fi.IsDir() {
 			return d, nil
 		}
 		parent := filepath.Dir(d)
