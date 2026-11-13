@@ -1,2 +1,3 @@
-// Package render renders a trivial generator's template and formats Go output.
+// Package render parses and executes templates, formats Go source output,
+// and enforces header conventions for generated files.
 package render
