@@ -4,6 +4,46 @@ Newest first. Every working session adds an entry: what landed, the decisions
 taken for you, what's next, and what's waiting on you. The terms are in
 [ownership.md](ownership.md).
 
+## 2026-11-14: amendment A4, parameters for a generator; v0.2.0
+
+- **Landed** ([PR #15](https://github.com/epistemer/genx/pull/15)):
+  interface amendment A4, as you approved it on 2026-11-14, for the models
+  package:
+  - a metafile declares `params:` (`{doc, default}`), shared by its
+    generators;
+  - an app sets them in the map form of a `use` entry,
+    `{generators, params}`; the list form keeps every default; an unknown
+    parameter or a value of the wrong JSON type is an error with file and
+    line;
+  - every query reads `$params` (`defs`, `units`, `out`); templates don't;
+  - `genx list` shows each value and marks the defaults;
+  - `genxtest.RenderParams`, validated as genx validates.
+  Three e2e scripts (`params`, `params_entries`, `params_failures`; the
+  first is the models shape end to end), twelve rows in failures.md, the
+  generator guide's new §5, the README, the CHANGELOG and the `genx` skill.
+- **`v0.2.0`** is tagged and resolves through the module proxy.
+- **Reviewed:** [review 0010](reviews/0010-gemini-a4-review.md), Gemini 4
+  Hydrogen (High), about 82k tokens, over the diff only; Argon was out of
+  quota for 20 hours. No finding was a divergence from the design. Five of
+  six accepted: `RenderParams` reported problems in map order and stopped
+  at the first; missing tests for one package in two entries and for
+  non-scalar values in `genx list`; the map form skipped checking `params`
+  when `generators` was missing; nested bad values were reported at the
+  wrong line. One rejected (an alias budget that can't be reached, since
+  yamlx expands aliases first).
+- **Decided for you** (in A4's text, each can be overturned):
+  - values belong to the `use` entry, so one package in two entries runs
+    each entry's generators with that entry's values, and the list form
+    always means the defaults;
+  - an integer and a fraction are both numbers; `null` for a parameter
+    with a non-null default is a type error;
+  - `$params` is `{}` when a metafile declares none;
+  - values aren't checked beyond their type: a generator checks the rest
+    with `error`.
+- **Next:** the models package's M2 on `v0.2.0`.
+- **Waiting on you:** nothing. Deleting the merged branch `a4-params` is
+  yours.
+
 ## 2026-11-13: M9, v0.1.0; i18n v0.2.0 and cfgx v0.2.0
 
 - **Landed:**
