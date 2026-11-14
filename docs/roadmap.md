@@ -304,9 +304,10 @@ between M11.1 and M11.2.
 
 ## After v0.1.0 (ordered backlog)
 
-1. **neozp's models package on sqlc**: enums and table labels as trivial
-   generators, S4 made real. This is the next neozp package, and the second
-   user the formats need before `v1.0.0`.
+1. ~~**neozp's models package on sqlc**~~: done. models `v0.1.0`
+   (2026-11-14) runs on genx `v0.2.0`'s parameters (A4); its spike and
+   its zp check matched all 995 of zp's keys. `v1.0.0` still waits for it
+   to run in a real app (zp's move).
 2. **Producer descriptions shipped by modules**, so the manifest names a
    producer and doesn't spell out its command.
 3. **A kit for writing producers in Go**: cfgx's schema loader and golden
