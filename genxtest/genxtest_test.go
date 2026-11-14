@@ -210,6 +210,10 @@ func TestRenderParamsFails(t *testing.T) {
 				`params.tags: must be an array, as its default ["a"] is (got a string)`},
 		{"a value JSON can't encode", "testdata/params", map[string]any{"dir": func() {}},
 			"genxtest.RenderParams: params.dir: json: unsupported type: func()"},
+		{"every problem, in name order", "testdata/params", map[string]any{"tags": func() {}, "dir": make(chan int), "colour": 1},
+			"genxtest.RenderParams: params.dir: json: unsupported type: chan int\n" +
+				"params.tags: json: unsupported type: func()\n" +
+				`params.colour: testdata/params/genx.meta.yaml declares no parameter "colour" (it declares: dir, package, tags)`},
 		{"a query refuses a value", "testdata/params", map[string]any{"dir": "../x"},
 			`genxtest.RenderParams: testdata/params:show: out: "../x/zz_x.txt": must not contain ".."`},
 	} {

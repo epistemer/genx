@@ -96,6 +96,8 @@ func TestParseParamsErrors(t *testing.T) {
 			"genx.meta.yaml:3: params.dir.type: unknown field"},
 		{"a .nan default", "params:\n  dir: {doc: d, default: .nan}\n",
 			"genx.meta.yaml:3: params.dir.default: .nan is not allowed in YAML"},
+		{"a nested .nan, at its own line", "params:\n  dir:\n    doc: d\n    default:\n      - 1\n      - .nan\n",
+			"genx.meta.yaml:7: params.dir.default: .nan is not allowed in YAML"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Parse("genx.meta.yaml", []byte("version: 1\n"+tt.params+paramsGen))

@@ -63,6 +63,11 @@ func TestKindCompactNormalize(t *testing.T) {
 		}
 	}
 
+	// A value that isn't decoded isn't taken for a number.
+	if got := Kind([]string{"x"}); got != "Go []string" {
+		t.Errorf("Kind([]string) = %s", got)
+	}
+
 	// Normalize gives what a query reads from JSON.
 	got, err := Normalize(map[string]any{"s": []string{"x"}, "n": int64(3), "f": float32(0.5), "big": uint64(1 << 63)})
 	if err != nil {

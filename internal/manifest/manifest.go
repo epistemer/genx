@@ -375,47 +375,48 @@ func parseUse(file string, node *yaml.Node, path string, seenUse map[string]bool
 	pkgFieldPath := yamlx.FieldPath(path, pkg)
 	u.Package = pkg
 	u.Path = pkgFieldPath
-	gensNode := valNode
+	gensNode, gensPath := valNode, pkgFieldPath
 	switch valNode.Kind {
 	case yaml.SequenceNode:
 	case yaml.MappingNode:
 		// The map form: {generators: [...], params: {name: value}}.
 		fields := yamlx.MappingEntries(file, valNode, pkgFieldPath, []string{"generators", "params"}, errs)
+		if paramsEntry := yamlx.FindEntry(fields, "params"); paramsEntry != nil {
+			u.Params = parseParams(file, paramsEntry.ValNode, yamlx.FieldPath(pkgFieldPath, "params"), errs)
+		}
+		gensPath = yamlx.FieldPath(pkgFieldPath, "generators")
 		gensEntry := yamlx.FindEntry(fields, "generators")
 		if gensEntry == nil {
-			errs.Add(pkgNode.Line, yamlx.FieldPath(pkgFieldPath, "generators"), "required")
+			errs.Add(pkgNode.Line, gensPath, "required")
 			return u, false
 		}
 		gensNode = gensEntry.ValNode
 		if gensNode.Kind != yaml.SequenceNode {
-			errs.Add(gensNode.Line, yamlx.FieldPath(pkgFieldPath, "generators"), "must be a sequence of generator names")
+			errs.Add(gensNode.Line, gensPath, "must be a sequence of generator names")
 			return u, false
-		}
-		if paramsEntry := yamlx.FindEntry(fields, "params"); paramsEntry != nil {
-			u.Params = parseParams(file, paramsEntry.ValNode, yamlx.FieldPath(pkgFieldPath, "params"), errs)
 		}
 	default:
 		errs.Add(valNode.Line, pkgFieldPath, "must be a sequence of generator names, or a mapping {generators, params}")
 		return u, false
 	}
 	if len(gensNode.Content) == 0 {
-		errs.Add(gensNode.Line, pkgFieldPath, "must not be empty")
+		errs.Add(gensNode.Line, gensPath, "must not be empty")
 		return u, false
 	}
 
 	for _, genNode := range gensNode.Content {
 		if genNode.Kind != yaml.ScalarNode || (genNode.Tag != "!!str" && genNode.Tag != "") {
-			errs.Add(genNode.Line, pkgFieldPath, "generator name must be a string")
+			errs.Add(genNode.Line, gensPath, "generator name must be a string")
 			continue
 		}
 		gen := genNode.Value
 		if !isValidName(gen) {
-			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", gen))
+			errs.Add(genNode.Line, gensPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", gen))
 			continue
 		}
 		pairKey := pkg + ":" + gen
 		if seenUse[pairKey] {
-			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("duplicate generator %q for package %q", gen, pkg))
+			errs.Add(genNode.Line, gensPath, fmt.Sprintf("duplicate generator %q for package %q", gen, pkg))
 			continue
 		}
 		seenUse[pairKey] = true
@@ -436,7 +437,7 @@ func parseParams(file string, node *yaml.Node, path string, errs *yamlx.Errors) 
 	for _, e := range yamlx.MappingEntries(file, node, path, nil, errs) {
 		v, err := query.DecodeNode(e.ValNode)
 		if err != nil {
-			errs.Add(e.ValNode.Line, yamlx.FieldPath(path, e.Key), err.Error())
+			errs.Add(query.ErrorLine(err, e.ValNode.Line), yamlx.FieldPath(path, e.Key), err.Error())
 			continue
 		}
 		params = append(params, Param{Name: e.Key, Value: v, Line: e.KeyNode.Line})

@@ -142,10 +142,34 @@ func Decode(data []byte, isYAML bool) (any, error) {
 }
 
 // DecodeNode turns a node of a YAML file that yamlx has read into the JSON
-// value a query sees, by Decode's rules for YAML.
+// value a query sees, by Decode's rules for YAML. yamlx has expanded the
+// file's aliases within its own budget, so none are left to count here. An
+// error is a *NodeError, with the line of the node that failed.
 func DecodeNode(node *yaml.Node) (any, error) {
 	d := &yamlDecoder{onPath: map[*yaml.Node]bool{}, budget: aliasBudget(0)}
-	return d.decode(node, false)
+	v, err := d.decode(node, false)
+	if err != nil {
+		return nil, &NodeError{Line: d.failedLine, Err: err}
+	}
+	return v, nil
+}
+
+// NodeError is an error of DecodeNode, at the line of the node that failed.
+type NodeError struct {
+	Line int
+	Err  error
+}
+
+func (e *NodeError) Error() string { return e.Err.Error() }
+func (e *NodeError) Unwrap() error { return e.Err }
+
+// ErrorLine is the line of a DecodeNode error, or else line.
+func ErrorLine(err error, line int) int {
+	var ne *NodeError
+	if errors.As(err, &ne) && ne.Line > 0 {
+		return ne.Line
+	}
+	return line
 }
 
 // Normalize turns a Go value into the JSON value a query sees: it encodes v
@@ -173,8 +197,11 @@ func Kind(v any) string {
 		return "array"
 	case map[string]any:
 		return "object"
-	default:
+	case int, float64, *big.Int:
 		return "number"
+	default:
+		// Not a decoded value: a caller forgot Normalize.
+		return fmt.Sprintf("Go %T", v)
 	}
 }
 
@@ -287,6 +314,8 @@ func aliasBudget(size int) int { return 10000 + 100*size }
 type yamlDecoder struct {
 	onPath map[*yaml.Node]bool
 	budget int
+	// failedLine is the line of the innermost node that failed.
+	failedLine int
 }
 
 // resolve follows aliases to the node they name.
@@ -301,7 +330,13 @@ func resolve(node *yaml.Node) (*yaml.Node, bool, error) {
 	return node, aliased, nil
 }
 
-func (d *yamlDecoder) decode(node *yaml.Node, inAlias bool) (any, error) {
+func (d *yamlDecoder) decode(node *yaml.Node, inAlias bool) (_ any, err error) {
+	defer func() {
+		// Deferred calls run innermost first, so the deepest node wins.
+		if err != nil && d.failedLine == 0 {
+			d.failedLine = node.Line
+		}
+	}()
 	node, aliased, err := resolve(node)
 	if err != nil {
 		return nil, err

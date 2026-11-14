@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,17 +35,27 @@ func Render(ctx context.Context, dir, generator string, params map[string]any, i
 		return nil, err
 	}
 	defer root.Close()
+	// By name, so that messages come in one order.
+	names := make([]string, 0, len(params))
+	for name := range params {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 	var set []setting
-	for name, v := range params {
-		nv, err := query.Normalize(v)
+	var errs []error
+	for _, name := range names {
+		nv, err := query.Normalize(params[name])
 		if err != nil {
-			return nil, fmt.Errorf("params.%s: %w", name, err)
+			errs = append(errs, fmt.Errorf("params.%s: %w", name, err))
+			continue
 		}
 		set = append(set, setting{name: name, value: nv, where: "params." + name})
 	}
-	sort.Slice(set, func(i, j int) bool { return set[i].name < set[j].name })
 	bound, err := bindParams(filepath.ToSlash(filepath.Join(dir, MetaFile)), mf.Params, set)
 	if err != nil {
+		errs = append(errs, err)
+	}
+	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 	g, err := compile(dir, mf, root, generator, bound)

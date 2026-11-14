@@ -280,7 +280,7 @@ func parseParams(file string, node *yaml.Node, errs *yamlx.Errors) []Param {
 		if defEntry := yamlx.FindEntry(fields, "default"); defEntry == nil {
 			errs.Add(pe.KeyNode.Line, defPath, "required (write default: null for a parameter with no default value)")
 		} else if v, err := query.DecodeNode(defEntry.ValNode); err != nil {
-			errs.Add(defEntry.ValNode.Line, defPath, err.Error())
+			errs.Add(query.ErrorLine(err, defEntry.ValNode.Line), defPath, err.Error())
 		} else {
 			p.Default = v
 		}
