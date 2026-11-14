@@ -7,6 +7,7 @@ import (
 
 	"github.com/epistemer/genx/internal/domain"
 	"github.com/epistemer/genx/internal/paths"
+	"github.com/epistemer/genx/internal/query"
 	"github.com/epistemer/genx/internal/yamlx"
 	"go.yaml.in/yaml/v4"
 )
@@ -42,7 +43,21 @@ type Emit struct {
 type Use struct {
 	Package    string
 	Generators []string
-	Line       int
+	// Params are the values the entry's map form sets, in the order
+	// written (interface amendment A4). The list form sets none.
+	Params []Param
+	// Path is the entry's field path in messages, such as
+	// "use[0].example.com/app/gen".
+	Path string
+	Line int
+}
+
+// Param is a value an app gives one of a package's parameters. Value is a
+// decoded JSON value; nil is null.
+type Param struct {
+	Name  string
+	Value any
+	Line  int
 }
 
 // Parse decodes and validates a manifest from YAML data.
@@ -358,29 +373,50 @@ func parseUse(file string, node *yaml.Node, path string, seenUse map[string]bool
 	}
 
 	pkgFieldPath := yamlx.FieldPath(path, pkg)
-	if valNode.Kind != yaml.SequenceNode {
-		errs.Add(valNode.Line, pkgFieldPath, "must be a sequence of generator names")
+	u.Package = pkg
+	u.Path = pkgFieldPath
+	gensNode, gensPath := valNode, pkgFieldPath
+	switch valNode.Kind {
+	case yaml.SequenceNode:
+	case yaml.MappingNode:
+		// The map form: {generators: [...], params: {name: value}}.
+		fields := yamlx.MappingEntries(file, valNode, pkgFieldPath, []string{"generators", "params"}, errs)
+		if paramsEntry := yamlx.FindEntry(fields, "params"); paramsEntry != nil {
+			u.Params = parseParams(file, paramsEntry.ValNode, yamlx.FieldPath(pkgFieldPath, "params"), errs)
+		}
+		gensPath = yamlx.FieldPath(pkgFieldPath, "generators")
+		gensEntry := yamlx.FindEntry(fields, "generators")
+		if gensEntry == nil {
+			errs.Add(pkgNode.Line, gensPath, "required")
+			return u, false
+		}
+		gensNode = gensEntry.ValNode
+		if gensNode.Kind != yaml.SequenceNode {
+			errs.Add(gensNode.Line, gensPath, "must be a sequence of generator names")
+			return u, false
+		}
+	default:
+		errs.Add(valNode.Line, pkgFieldPath, "must be a sequence of generator names, or a mapping {generators, params}")
 		return u, false
 	}
-	if len(valNode.Content) == 0 {
-		errs.Add(valNode.Line, pkgFieldPath, "must not be empty")
+	if len(gensNode.Content) == 0 {
+		errs.Add(gensNode.Line, gensPath, "must not be empty")
 		return u, false
 	}
 
-	u.Package = pkg
-	for _, genNode := range valNode.Content {
+	for _, genNode := range gensNode.Content {
 		if genNode.Kind != yaml.ScalarNode || (genNode.Tag != "!!str" && genNode.Tag != "") {
-			errs.Add(genNode.Line, pkgFieldPath, "generator name must be a string")
+			errs.Add(genNode.Line, gensPath, "generator name must be a string")
 			continue
 		}
 		gen := genNode.Value
 		if !isValidName(gen) {
-			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", gen))
+			errs.Add(genNode.Line, gensPath, fmt.Sprintf("%q is not a valid generator name (a lowercase letter, then lowercase letters, digits and -)", gen))
 			continue
 		}
 		pairKey := pkg + ":" + gen
 		if seenUse[pairKey] {
-			errs.Add(genNode.Line, pkgFieldPath, fmt.Sprintf("duplicate generator %q for package %q", gen, pkg))
+			errs.Add(genNode.Line, gensPath, fmt.Sprintf("duplicate generator %q for package %q", gen, pkg))
 			continue
 		}
 		seenUse[pairKey] = true
@@ -388,6 +424,25 @@ func parseUse(file string, node *yaml.Node, path string, seenUse map[string]bool
 	}
 
 	return u, true
+}
+
+// parseParams reads the values a use entry sets. Whether the package
+// declares each one, and its type, are checked once its metafile is read.
+func parseParams(file string, node *yaml.Node, path string, errs *yamlx.Errors) []Param {
+	if node.Kind != yaml.MappingNode {
+		errs.Add(node.Line, path, "must be a mapping of parameter names to values")
+		return nil
+	}
+	var params []Param
+	for _, e := range yamlx.MappingEntries(file, node, path, nil, errs) {
+		v, err := query.DecodeNode(e.ValNode)
+		if err != nil {
+			errs.Add(query.ErrorLine(err, e.ValNode.Line), yamlx.FieldPath(path, e.Key), err.Error())
+			continue
+		}
+		params = append(params, Param{Name: e.Key, Value: v, Line: e.KeyNode.Line})
+	}
+	return params
 }
 
 func isValidName(s string) bool {

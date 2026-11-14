@@ -1,0 +1,115 @@
+# Interface amendment A4: values belong to the use entry. One package in
+# three entries runs each entry's generators with that entry's values; the
+# list form and params: {} keep the defaults. A metafile that declares no
+# parameters reads $params as {}.
+exec genx
+! stderr .
+cmp out/zz_a.txt want/zz_a.txt
+cmp other/zz_b.txt want/zz_b.txt
+cmp out/zz_c.txt want/zz_c.txt
+cmp zz_plain.txt want/zz_plain.txt
+
+# genx list shows each generator's values, objects with sorted keys.
+exec genx list
+cmp stdout want/list.txt
+
+# Determinism: a second run writes nothing.
+exec genx
+! stdout '^wrote '
+
+-- genx.yaml --
+version: 1
+
+producers:
+  - name: data
+    run: [produce, data/x.json, zz_x.json]
+    emits: [zz_x.json]
+
+use:
+  - example.com/app/gen: [a]
+  - example.com/app/gen:
+      generators: [b]
+      params:
+        dir: other
+        opts: {z: 1, a: [true, 2.5]}
+  - example.com/app/gen: {generators: [c], params: {}}
+  - example.com/app/plain: [p]
+-- gen/gen.go --
+package gen
+-- gen/genx.meta.yaml --
+version: 1
+
+params:
+  dir: {doc: where files go, default: out}
+  opts: {doc: anything, default: null}
+
+generators:
+  a:
+    doc: file a
+    needs: [x/v1]
+    units: '{name: "a", params: ($params | tojson)}'
+    out: '"\($params.dir)/zz_a.txt"'
+    template: t.tmpl
+  b:
+    doc: file b
+    needs: [x/v1]
+    units: '{name: "b", params: ($params | tojson)}'
+    out: '"\($params.dir)/zz_b.txt"'
+    template: t.tmpl
+  c:
+    doc: file c
+    needs: [x/v1]
+    units: '{name: "c", params: ($params | tojson)}'
+    out: '"\($params.dir)/zz_c.txt"'
+    template: t.tmpl
+-- gen/t.tmpl --
+{{.name}} {{.params}}
+-- plain/plain.go --
+package plain
+-- plain/genx.meta.yaml --
+version: 1
+
+defs: |
+  def x: $params.x;
+
+generators:
+  p:
+    doc: a file from a metafile without params
+    needs: [x/v1]
+    units: '{name: "p", params: ([$params, x] | tojson)}'
+    out: '"zz_plain.txt"'
+    template: t.tmpl
+-- plain/t.tmpl --
+{{.name}} {{.params}}
+-- want/zz_a.txt --
+a {"dir":"out","opts":null}
+-- want/zz_b.txt --
+b {"dir":"other","opts":{"a":[true,2.5],"z":1}}
+-- want/zz_c.txt --
+c {"dir":"out","opts":null}
+-- want/zz_plain.txt --
+p [{},null]
+-- data/x.json --
+{"domain": "x/v1"}
+-- want/list.txt --
+1. producer data
+   runs    produce data/x.json zz_x.json
+   writes  zz_x.json (x/v1)
+2. example.com/app/gen:a
+   doc     file a
+   needs   x/v1
+   param   dir = "out" (default)
+   param   opts = null (default)
+3. example.com/app/gen:b
+   doc     file b
+   needs   x/v1
+   param   dir = "other"
+   param   opts = {"a":[true,2.5],"z":1}
+4. example.com/app/gen:c
+   doc     file c
+   needs   x/v1
+   param   dir = "out" (default)
+   param   opts = null (default)
+5. example.com/app/plain:p
+   doc     a file from a metafile without params
+   needs   x/v1

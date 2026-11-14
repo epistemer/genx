@@ -1,0 +1,17 @@
+version: 1
+
+params:
+  dir: {doc: where the file goes, default: models}
+  package: {doc: the package name; null means the last element of dir, default: null}
+  tags: {doc: words to list, default: [a]}
+
+defs: |
+  def pkg: $params.package // ($params.dir | split("/") | last);
+
+generators:
+  show:
+    doc: a file that shows the parameters
+    needs: [labels/v1]
+    units: '{pkg: pkg, tags: ($params.tags | join(",")), producers: [.["labels/v1"][].producer]}'
+    out: '"\($params.dir)/zz_\(pkg).txt"'
+    template: show.tmpl

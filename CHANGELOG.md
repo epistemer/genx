@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.2.0 (2026-11-14)
+
+Interface amendment A4, parameters for a generator
+([docs/interface.md](docs/interface.md) §13), for the models package, whose
+generators need an app's package directory, name and table prefix.
+
+- **A metafile declares parameters** in a top-level `params:`, each with a
+  one-line `doc` and a `default` (any JSON value, `null` included), shared
+  by all its generators.
+- **An app sets them** in the map form of a `use` entry,
+  `- <package>: {generators: [...], params: {name: value}}`. The list form
+  still works and keeps every default. An unknown parameter, or a value
+  whose JSON type differs from a non-null default's, is an error with the
+  file and line.
+- **Queries read them as `$params`**, in `defs`, `units` and `out`: every
+  declared parameter, the app's value or else the default. Templates still
+  see only the unit.
+- **`genx list`** shows each generator's parameter values and marks those
+  left at their default.
+- **`genxtest.RenderParams`** renders a generator with parameters set,
+  validated as genx validates them; `Render` uses the defaults.
+
+Nothing that worked with v0.1.0 changes.
+
 ## v0.1.0 (2026-11-13)
 
 The first release, built against the interface locked on 2026-11-13

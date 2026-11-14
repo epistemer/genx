@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/epistemer/genx/internal/domain"
+	"github.com/epistemer/genx/internal/query"
 	"github.com/epistemer/genx/internal/yamlx"
 	"go.yaml.in/yaml/v4"
 )
@@ -13,7 +14,17 @@ import (
 type Metafile struct {
 	Version    int
 	Defs       string
+	Params     []Param // in the metafile's order
 	Generators []Generator
+}
+
+// Param is a parameter the metafile declares for all its generators
+// (interface amendment A4). Default is a decoded JSON value; nil is null.
+type Param struct {
+	Name    string
+	Doc     string
+	Default any
+	Line    int
 }
 
 // Generator represents a trivial code generator defined in a metafile.
@@ -40,7 +51,7 @@ func Parse(file string, data []byte) (*Metafile, error) {
 	}
 
 	errs := yamlx.NewErrors(file)
-	entries := yamlx.MappingEntries(file, root, "", []string{"version", "defs", "generators"}, errs)
+	entries := yamlx.MappingEntries(file, root, "", []string{"version", "defs", "params", "generators"}, errs)
 
 	m := &Metafile{}
 
@@ -67,6 +78,11 @@ func Parse(file string, data []byte) (*Metafile, error) {
 		if ok {
 			m.Defs = defs
 		}
+	}
+
+	// params: optional mapping of name -> {doc, default}
+	if paramsEntry := yamlx.FindEntry(entries, "params"); paramsEntry != nil {
+		m.Params = parseParams(file, paramsEntry.ValNode, errs)
 	}
 
 	// generators: required, non-empty mapping
@@ -228,6 +244,64 @@ func parseGenerator(file, name string, keyLine int, node *yaml.Node, path string
 	}
 
 	return g
+}
+
+func parseParams(file string, node *yaml.Node, errs *yamlx.Errors) []Param {
+	if node.Kind != yaml.MappingNode {
+		errs.Add(node.Line, "params", "must be a mapping of parameter names to {doc, default}")
+		return nil
+	}
+	var params []Param
+	for _, pe := range yamlx.MappingEntries(file, node, "params", nil, errs) {
+		path := yamlx.FieldPath("params", pe.Key)
+		if !isValidParamName(pe.Key) {
+			errs.Add(pe.KeyNode.Line, path, fmt.Sprintf("%q is not a valid parameter name (a lowercase letter, then lowercase letters, digits and _)", pe.Key))
+			continue
+		}
+		if pe.ValNode.Kind != yaml.MappingNode {
+			errs.Add(pe.ValNode.Line, path, "must be a mapping {doc, default}")
+			continue
+		}
+		p := Param{Name: pe.Key, Line: pe.KeyNode.Line}
+		fields := yamlx.MappingEntries(file, pe.ValNode, path, []string{"doc", "default"}, errs)
+		docPath := yamlx.FieldPath(path, "doc")
+		if docEntry := yamlx.FindEntry(fields, "doc"); docEntry == nil {
+			errs.Add(pe.KeyNode.Line, docPath, "required")
+		} else if doc, ok := yamlx.ReadString(docEntry.ValNode, docPath, errs); ok {
+			if doc == "" {
+				errs.Add(docEntry.ValNode.Line, docPath, "must not be empty")
+			} else if strings.ContainsAny(doc, "\r\n") {
+				errs.Add(docEntry.ValNode.Line, docPath, "must be one line")
+			} else {
+				p.Doc = doc
+			}
+		}
+		defPath := yamlx.FieldPath(path, "default")
+		if defEntry := yamlx.FindEntry(fields, "default"); defEntry == nil {
+			errs.Add(pe.KeyNode.Line, defPath, "required (write default: null for a parameter with no default value)")
+		} else if v, err := query.DecodeNode(defEntry.ValNode); err != nil {
+			errs.Add(query.ErrorLine(err, defEntry.ValNode.Line), defPath, err.Error())
+		} else {
+			p.Default = v
+		}
+		params = append(params, p)
+	}
+	return params
+}
+
+// isValidParamName reports whether s matches [a-z][a-z0-9_]*, so a query
+// reads it as $params.<name>.
+func isValidParamName(s string) bool {
+	if len(s) == 0 || s[0] < 'a' || s[0] > 'z' {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		c := s[i]
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func isValidName(s string) bool {

@@ -6,7 +6,8 @@ package as `genx.meta.yaml` and its templates, and an app switches it on
 with `use`. This guide writes the generator of
 [examples/labels](../../examples/labels), which CI runs.
 
-The contract is [interface.md](../interface.md), §4–§7.
+The contract is [interface.md](../interface.md), §4–§7, and amendment A4
+for parameters.
 
 ## 1. The package
 
@@ -168,12 +169,81 @@ files := genxtest.Render(f, ".", "labels", genxtest.Input{Path: "testdata/clash.
 // files is nil, and f.msg holds genx's message with the query's error.
 ```
 
-## 5. Switch it on in an app
+## 5. Parameters
+
+A generator that needs something only the app knows, such as the directory
+of the package it writes, declares a parameter (interface amendment A4).
+Parameters are declared once per metafile and shared by its generators:
+
+```yaml
+version: 1
+
+params:
+  dir:
+    doc: the models package's directory, from the module root
+    default: models
+  package:
+    doc: the package's name; null means the last element of dir
+    default: null
+  table_prefix:
+    doc: a prefix that table names carry and labels leave out
+    default: ""
+
+defs: |
+  def pkg: $params.package // ($params.dir | split("/") | last);
+
+generators:
+  labels:
+    doc: a label for every table
+    needs: [sqlc.request/v1]
+    emits: labels/v1
+    units: |
+      .["sqlc.request/v1"][0]
+      | {domain: "labels/v1", producer: "models",
+         package: {name: pkg, dir: $params.dir}, labels: [...]}
+    out: '"\($params.dir)/zz_\(pkg).labels.json"'
+```
+
+- Every parameter needs a one-line `doc`, which `genx list` doesn't show
+  but readers of the metafile do, and a `default`. Write `default: null`
+  for one with no sensible default; a null default accepts any value.
+- Queries read them as `$params`, in `defs` too: an object with every
+  parameter, the app's value or else the default. Templates don't see
+  `$params`; put what a template needs into the unit.
+- An app's value must have the default's JSON type, unless the default is
+  null. Check anything more in a query, and stop with `error`.
+- [params.txtar](../../internal/e2e/testdata/script/params.txtar) runs this
+  shape end to end.
+
+Test with other values with `genxtest.RenderParams`; `Render` uses the
+defaults:
+
+```go
+files := genxtest.RenderParams(t, ".", "labels",
+	map[string]any{"dir": "internal/db", "table_prefix": "app_"},
+	genxtest.Input{Path: "testdata/request.json", Domain: "sqlc.request/v1"})
+```
+
+An unknown parameter or a value of the wrong type fails the test, as it
+fails genx.
+
+## 6. Switch it on in an app
 
 ```yaml
 use:
   - github.com/epistemer/genx/examples/labels/gen: [labels]
 ```
 
-`genx list` shows it in the app's order; generators in the build that the
-app hasn't switched on are listed after the steps.
+To set parameters, give the entry its map form; the list form keeps every
+default:
+
+```yaml
+use:
+  - example.com/models:
+      generators: [labels]
+      params: {dir: internal/db, table_prefix: app_}
+```
+
+`genx list` shows it in the app's order, with each parameter's value and
+`(default)` after the ones the app didn't set; generators in the build that
+the app hasn't switched on are listed after the steps.

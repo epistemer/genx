@@ -63,7 +63,9 @@ producers:
 
 use:
   - github.com/epistemer/i18n: [labels]
-  - example.com/app/internal/gen: [enum-labels]
+  - example.com/app/internal/gen:
+      generators: [enum-labels]
+      params: {dir: db}
 ```
 
 | Field | Required | Meaning |
@@ -76,7 +78,7 @@ use:
 | `producers[].timeout` | no | A positive Go duration. Default `10m` |
 | `producers[].needs` | no | Domains the producer reads; it runs after the steps that write them |
 | `producers[].emits` | yes | The domain files it writes, relative to the module root. A string, or `{path, domain}` for a foreign file, which doesn't name its domain itself |
-| `use` | no | A list of one-key maps: a Go **package import path** → the generators of that package's metafile to switch on, in order |
+| `use` | no | A list of one-key maps: a Go **package import path** → the generators of that package's metafile to switch on, in order; or → `{generators, params}`, which also sets the metafile's parameters (A4) |
 
 - `use` names packages (ADR 0003). genx resolves them all with one
   `go list -f '{{.Dir}}'`, so module mode, `replace`, `go.work` and
@@ -86,11 +88,22 @@ use:
   copy it, the message says so and shows the fix: a file the app keeps with a
   build-tagged blank import (ADR 0003).
 - One generator appears once in `use`; a repeat is an error.
+- **Parameters (A4).** The map form's `params` maps a parameter the
+  package's metafile declares to its value. The list form keeps every
+  default. An unknown name, or a value whose JSON type differs from a
+  non-null default's, is an error with the file and line. Values belong to
+  the entry: a package named in two entries runs each entry's generators
+  with that entry's values.
 
 ## 4. The metafile, `genx.meta.yaml`
 
 ```yaml
 version: 1
+
+params:
+  dir:
+    doc: the models package's directory, from the module root
+    default: models
 
 defs: |
   def pascal: [splits("[^\\p{L}\\p{N}]+") | select(length > 0)
@@ -113,14 +126,15 @@ generators:
     units: |   # abridged
       .["sqlc.request/v1"][0]
       | {domain: "labels/v1", producer: "models",
-         package: {name: "models", dir: "models"},
+         package: {name: "models", dir: $params.dir},
          labels: [.catalog.schemas[].enums[] | ...]}
-    out: '"models/zz_enums.labels.json"'
+    out: '"\($params.dir)/zz_enums.labels.json"'
 ```
 
 | Field | Required | Meaning |
 |-------|----------|---------|
 | `version` | yes | `1` |
+| `params` | no | Parameters for all of this metafile's generators (A4): a name matching `[a-z][a-z0-9_]*` → `{doc, default}`, both required. `doc` is one line; `default` is any JSON value, `null` included |
 | `defs` | no | jq definitions, put before every query of this metafile, followed by a newline |
 | `generators.<name>` | – | `[a-z][a-z0-9-]*`, unique in the metafile |
 | `doc` | yes | One line, shown by `genx list` |
@@ -142,6 +156,11 @@ generators:
 - **Input.** An object keyed by each domain in `needs`. Each holds the
   domain's documents as an array, in the byte order of their slash-separated
   paths; an empty array when there are none.
+- **Parameters (A4).** `$params` is bound in every query of the metafile,
+  `defs` included: an object holding every declared parameter, with the
+  app's value or else the default; `{}` when the metafile declares none.
+  Templates don't see it: a query copies into the unit what the template
+  needs.
 - **Documents.** One JSON value per file, or one YAML document when the
   extension is `.yaml` or `.yml`. Integers keep their precision (ADR 0004).
   A YAML file is read as its JSON equivalent: keys must be strings; a
@@ -226,7 +245,7 @@ models/zz_enums.labels.json example.com/app/internal/gen:enum-labels
 |---------|------|------|
 | `genx` | Runs every step in order, deletes leftovers, writes what changed, writes the lock | 0, or 1 on a failure |
 | `genx check` | Writes nothing (below) | 0 if all is current, 1 otherwise |
-| `genx list` | The steps in order, with what each reads and writes; then the generators of other packages in the build (`go list all`) that `use` doesn't name. Runs no producer and no query | 0, or 1 on a failure |
+| `genx list` | The steps in order, with what each reads and writes and each generator's parameter values (A4), marking those left at their default; then the generators of other packages in the build (`go list all`) that `use` doesn't name. Runs no producer and no query | 0, or 1 on a failure |
 | `genx help` | Usage | 0 |
 
 - Usage errors exit 2.
@@ -299,7 +318,7 @@ ADR 0001 §4:
 
 ## 12. Not in this version
 
-Parameters for a generator in `use`; `meta` on labels; producers described
+`meta` on labels; producers described
 by their modules; `genx init` and `genx explain`; parallel steps and caching;
 a watch mode. The roadmap's backlog orders them.
 
@@ -345,3 +364,52 @@ manifest, metafile or domain file, that expands through aliases past
 10,000 values plus 100 per byte of the file, with "the YAML aliases expand
 to too many values". No real file comes near it. An anchor used on two
 paths was wrongly refused as circular before; now only a real cycle is.
+
+### A4. Parameters for a generator (2026-11-14, decided by epistemer)
+
+§12 left parameters for a generator in `use` for later. The models package
+needs them: sqlc's request doesn't say which Go package, directory or table
+prefix an app uses (models ADR 0001, D2). epistemer approved this design on
+2026-11-14:
+
+1. **Declared per metafile.** A new optional top-level `params:` in
+   `genx.meta.yaml` maps a name (`[a-z][a-z0-9_]*`) to `{doc, default}`.
+   Both are required; `default` may be any JSON value, null included. The
+   parameters are shared by all of that metafile's generators.
+2. **Set in a map form of the `use` entry:**
+   `- <pkg>: {generators: [..], params: {name: value}}`. The list form
+   `- <pkg>: [gens]` stays valid and uses every default. An unknown
+   parameter is an error with file and line. So is a value whose JSON type
+   differs from a non-null default's; a null default accepts any value.
+3. **Queries only.** `$params` is bound in every query of the metafile
+   (`defs`, `units`, `out`): an object holding every declared parameter, the
+   app's value or else the default. Templates see only the unit, as now; a
+   query copies into the unit what the template needs.
+4. **`genx list`** shows each used package's parameter values and marks the
+   ones left at their default.
+5. **genxtest** gains:
+
+   ```go
+   // RenderParams is Render with parameters set, as a use entry sets them;
+   // the others keep their defaults. A value is read as its JSON encoding.
+   func RenderParams(t testing.TB, dir, generator string, params map[string]any, inputs ...Input) map[string][]byte
+   ```
+
+   `Render` is unchanged and uses the defaults. The same validation
+   applies (an unknown parameter or a wrong type fails t).
+
+What the design left open, decided by Claude (each can be overturned):
+
+- **Values belong to the `use` entry.** A package named in two entries runs
+  each entry's generators with that entry's values, so the list form always
+  means the defaults. `genx list` shows the values under each generator.
+- **JSON types** are null, boolean, number, string, array and object; an
+  integer and a fraction are both numbers. Setting a parameter with a
+  non-null default to `null` is a type error.
+- **`$params` is `{}`** in a metafile that declares no parameters, so a
+  query reads `$params.x` as null rather than failing to compile.
+- **Values aren't checked further.** A generator that needs, say, a valid
+  directory checks it in a query and calls `error`, or lets §7 refuse the
+  path it makes.
+- `genx list` writes each value as one line of JSON, keys sorted:
+  `param   dir = "db"`, then ` (default)` for a default.

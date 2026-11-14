@@ -10,4 +10,9 @@
 // files, with no manifest, and compares the result with golden files:
 //
 //	files := genxtest.Render(t, ".", "labels", genxtest.Input{Path: "testdata/settings.labels.json"})
+//
+// Render keeps every parameter the metafile declares at its default;
+// RenderParams sets some, as an app's use entry would:
+//
+//	files := genxtest.RenderParams(t, ".", "labels", map[string]any{"dir": "internal/db"}, in)
 package genxtest

@@ -24,7 +24,7 @@ func (s *state) generate(g generator) error {
 	defer cancel()
 
 	input, files := s.input(g)
-	units, err := g.units.Run(ctx, input)
+	units, err := g.units.Run(ctx, input, g.vars)
 	if err != nil {
 		return s.queryError(ctx, g, "units", err, files)
 	}
@@ -32,7 +32,7 @@ func (s *state) generate(g generator) error {
 		if err := s.timedOut(ctx, g); err != nil {
 			return err
 		}
-		vals, err := g.out.Run(ctx, unit)
+		vals, err := g.out.Run(ctx, unit, g.vars)
 		if err != nil {
 			return s.queryError(ctx, g, "out", err, files)
 		}

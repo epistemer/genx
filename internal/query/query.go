@@ -75,8 +75,9 @@ var forbiddenReasons = map[string]string{
 
 // Compile parses defs + "\n" + src, walks the AST to refuse forbidden functions
 // and variables, and compiles the query with no environment loader, no module
-// loader, and no input iterator.
-func Compile(name, defs, src string) (*Query, error) {
+// loader, and no input iterator. vars names the variables, such as
+// "$params", that Run binds, in order, for the whole query, defs included.
+func Compile(name, defs, src string, vars ...string) (*Query, error) {
 	combined := defs + "\n" + src
 	parsed, err := gojq.Parse(combined)
 	if err != nil {
@@ -87,7 +88,7 @@ func Compile(name, defs, src string) (*Query, error) {
 		return nil, fmt.Errorf("%s: %q is not allowed in a query (%s)", name, item, reason)
 	}
 
-	code, err := gojq.Compile(parsed)
+	code, err := gojq.Compile(parsed, gojq.WithVariables(vars))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
@@ -99,10 +100,11 @@ func Compile(name, defs, src string) (*Query, error) {
 }
 
 // Run executes the compiled query against input under ctx, collecting all outputs.
+// values bind the variables Compile named, in order.
 // A jq error(v) stops execution and is returned as a *Error.
 // Context cancellation or expiration returns an error wrapping ctx.Err().
-func (q *Query) Run(ctx context.Context, input any) ([]any, error) {
-	iter := q.code.RunWithContext(ctx, input)
+func (q *Query) Run(ctx context.Context, input any, values ...any) ([]any, error) {
+	iter := q.code.RunWithContext(ctx, input, values...)
 	var results []any
 	for {
 		v, ok := iter.Next()
@@ -137,6 +139,82 @@ func Decode(data []byte, isYAML bool) (any, error) {
 		return decodeYAML(data)
 	}
 	return decodeJSON(data)
+}
+
+// DecodeNode turns a node of a YAML file that yamlx has read into the JSON
+// value a query sees, by Decode's rules for YAML. yamlx has expanded the
+// file's aliases within its own budget, so none are left to count here. An
+// error is a *NodeError, with the line of the node that failed.
+func DecodeNode(node *yaml.Node) (any, error) {
+	d := &yamlDecoder{onPath: map[*yaml.Node]bool{}, budget: aliasBudget(0)}
+	v, err := d.decode(node, false)
+	if err != nil {
+		return nil, &NodeError{Line: d.failedLine, Err: err}
+	}
+	return v, nil
+}
+
+// NodeError is an error of DecodeNode, at the line of the node that failed.
+type NodeError struct {
+	Line int
+	Err  error
+}
+
+func (e *NodeError) Error() string { return e.Err.Error() }
+func (e *NodeError) Unwrap() error { return e.Err }
+
+// ErrorLine is the line of a DecodeNode error, or else line.
+func ErrorLine(err error, line int) int {
+	var ne *NodeError
+	if errors.As(err, &ne) && ne.Line > 0 {
+		return ne.Line
+	}
+	return line
+}
+
+// Normalize turns a Go value into the JSON value a query sees: it encodes v
+// as JSON and decodes it as Decode does. genxtest uses it for the values a
+// test gives.
+func Normalize(v any) (any, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return decodeJSON(b)
+}
+
+// Kind names the JSON type of a decoded value: null, boolean, number,
+// string, array or object.
+func Kind(v any) string {
+	switch v.(type) {
+	case nil:
+		return "null"
+	case bool:
+		return "boolean"
+	case string:
+		return "string"
+	case []any:
+		return "array"
+	case map[string]any:
+		return "object"
+	case int, float64, *big.Int:
+		return "number"
+	default:
+		// Not a decoded value: a caller forgot Normalize.
+		return fmt.Sprintf("Go %T", v)
+	}
+}
+
+// Compact encodes a decoded value as one line of JSON, object keys sorted,
+// for messages and genx list.
+func Compact(v any) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return strings.TrimSuffix(buf.String(), "\n")
 }
 
 func decodeJSON(data []byte) (any, error) {
@@ -236,6 +314,8 @@ func aliasBudget(size int) int { return 10000 + 100*size }
 type yamlDecoder struct {
 	onPath map[*yaml.Node]bool
 	budget int
+	// failedLine is the line of the innermost node that failed.
+	failedLine int
 }
 
 // resolve follows aliases to the node they name.
@@ -250,7 +330,13 @@ func resolve(node *yaml.Node) (*yaml.Node, bool, error) {
 	return node, aliased, nil
 }
 
-func (d *yamlDecoder) decode(node *yaml.Node, inAlias bool) (any, error) {
+func (d *yamlDecoder) decode(node *yaml.Node, inAlias bool) (_ any, err error) {
+	defer func() {
+		// Deferred calls run innermost first, so the deepest node wins.
+		if err != nil && d.failedLine == 0 {
+			d.failedLine = node.Line
+		}
+	}()
 	node, aliased, err := resolve(node)
 	if err != nil {
 		return nil, err

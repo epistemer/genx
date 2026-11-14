@@ -42,15 +42,31 @@ type Input struct {
 // files, with no manifest and no producers, and returns the files it would
 // write, keyed by slash-separated path. It writes nothing, and fails t on
 // any error the generator would make genx report.
+// Every parameter the metafile declares keeps its default.
 func Render(t testing.TB, dir, generator string, inputs ...Input) map[string][]byte {
+	t.Helper()
+	return render(t, "genxtest.Render", dir, generator, nil, inputs)
+}
+
+// RenderParams is Render with parameters set, as an app's use entry sets
+// them (interface amendment A4); the others keep their defaults. A value is
+// read as its JSON encoding. A parameter the metafile doesn't declare, or a
+// value whose JSON type differs from a non-null default's, fails t, as it
+// fails genx.
+func RenderParams(t testing.TB, dir, generator string, params map[string]any, inputs ...Input) map[string][]byte {
+	t.Helper()
+	return render(t, "genxtest.RenderParams", dir, generator, params, inputs)
+}
+
+func render(t testing.TB, fn, dir, generator string, params map[string]any, inputs []Input) map[string][]byte {
 	t.Helper()
 	in := make([]run.Input, len(inputs))
 	for i, x := range inputs {
 		in[i] = run.Input{Path: x.Path, Domain: x.Domain}
 	}
-	files, err := run.Render(context.Background(), dir, generator, in)
+	files, err := run.Render(context.Background(), dir, generator, params, in)
 	if err != nil {
-		t.Fatalf("genxtest.Render: %v", err)
+		t.Fatalf("%s: %v", fn, err)
 	}
 	return files
 }
