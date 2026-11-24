@@ -120,6 +120,12 @@ nothing and exit non-zero when the file is stale. Without one, genx trusts
 the file and says so on every check (ADR 0007). The example's `-check`
 compares what it would write with what is there.
 
+If your producer type-checks the app's Go packages and those hold templ
+templates, it reads the generated `_templ.go` files, which genx doesn't
+write and `check` can't verify. Say so in your docs: the app runs
+`templ generate` before genx (`//go:generate go tool templ generate`, then
+`//go:generate go tool genx`). `handlers gen` is an example.
+
 ## 4. Declare it in the manifest
 
 <!-- file: genx.yaml -->

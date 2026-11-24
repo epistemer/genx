@@ -95,8 +95,10 @@ path in `use`.
   change to what an app or a package author writes is an amendment, recorded
   there with its reason.
 - **ADRs.** Each spike ends in an ADR. So does every new dependency.
-- **Versions.** The first usable release is `v0.1.0`. `v1.0.0` waits until
-  the sqlc generators (first in the backlog) run in a real app.
+- **Versions.** The first usable release is `v0.1.0`. `v1.0.0` follows
+  neozp decision D2 (2026-11-24): it waits until Confab uses genx's whole
+  surface with no open bug or contradiction finding against it. Tagging it
+  is epistemer's call.
 - **Sizes.** S is up to 1 day, M is 2–3 days, L is about 1 week, for one
   developer working without AI help. They order the work; they don't promise
   dates.
@@ -306,8 +308,10 @@ between M11.1 and M11.2.
 
 1. ~~**neozp's models package on sqlc**~~: done. models `v0.1.0`
    (2026-11-14) runs on genx `v0.2.0`'s parameters (A4); its spike and
-   its zp check matched all 995 of zp's keys. `v1.0.0` still waits for it
-   to run in a real app (zp's move).
+   its zp check matched all 995 of zp's keys. models' `v1.0.0` follows
+   neozp decision D2 (2026-11-24): it waits until Confab uses its whole
+   surface with no open bug or contradiction finding against it. (It no
+   longer waits for zp's move.)
 2. **Producer descriptions shipped by modules**, so the manifest names a
    producer and doesn't spell out its command.
 3. **A kit for writing producers in Go**: cfgx's schema loader and golden
@@ -320,6 +324,11 @@ between M11.1 and M11.2.
    producers or two consumers.
 8. **Parallel steps**, and skipping steps whose inputs didn't change, only if
    M9.2's timings ask for it.
+9. **`genx run <producer>`** (Confab's F32, called G1): run one producer
+   without the rest, and a way to declare that a producer's input may not
+   type-check yet, so bootstrapping doesn't mean commenting producers out of
+   `genx.yaml`. Dropped on 2026-11-24 and back in the backlog: no current
+   user.
 
 **Parking lot:** a watch mode; formatting for output that isn't Go; editor
 schemas for the manifest and metafile.
@@ -329,7 +338,7 @@ schemas for the manifest and metafile.
 | Risk | Likelihood / impact | Mitigation |
 |------|---------------------|------------|
 | Queries and templates grow into a second programming language | High / medium | No custom functions by default; each one needs an ADR (definition of done, 6); ADR 0001 §7 sends real logic to a producer |
-| The formats are frozen with one user | Medium / high | S4 runs a second, foreign user before the freeze; `v1.0.0` waits for the sqlc generators in a real app |
+| The formats are frozen with one user | Medium / high | S4 runs a second, foreign user before the freeze; `v1.0.0` waits for Confab to use the whole surface with no open finding (neozp D2) |
 | Metafiles can't be found when an app vendors its dependencies | Medium / medium | S1 and its kill criterion |
 | gojq differs from jq where it matters | Low / medium | S2; the interface says "jq as gojq implements it" and pins the version |
 | A domain file changes under its consumers | Medium / high | Major versions; the published schema and conformance files; the driver refuses a major it doesn't know |

@@ -123,6 +123,22 @@ genx doesn't write into:
 `go generate` lists a package's files before it runs, so genx deleting a
 leftover file in the directive's own package would make it fail.
 
+### An app with templ templates: templ runs first
+
+templ isn't part of genx. A producer that type-checks the app's packages
+(`handlers gen` does, templates included) fails on a stale or missing
+`_templ.go`, and `genx check` can't see that file go stale: it only knows
+what genx wrote. So `templ generate` goes before genx in the same file, the
+order Confab uses:
+
+```go
+//go:generate go tool templ generate
+//go:generate go tool genx
+```
+
+`go generate` runs a file's directives in order. In CI, run `templ generate`
+before `genx check`.
+
 ## Timings
 
 Measured on 2026-11-13 with genx `v0.1.0-rc.3`, Go 1.27.4 (installed as a

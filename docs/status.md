@@ -4,6 +4,24 @@ Newest first. Every working session adds an entry: what landed, the decisions
 taken for you, what's next, and what's waiting on you. The terms are in
 [ownership.md](ownership.md).
 
+## 2026-11-24: Confab's answers, F31 and the v1 gate (docs only)
+
+- **Landed** (docs only, straight to `main`):
+  - **F31:** the README, the producer guide and the `genx` skill say that
+    templ runs before genx. `handlers gen` type-checks packages with templ
+    templates, and `genx check` can't see a stale `_templ.go`. The order
+    Confab uses: `//go:generate go tool templ generate`, then
+    `//go:generate go tool genx`.
+  - **The v1 gate:** the roadmap's versions rule, backlog item 1 and the
+    risks table now follow neozp decision D2: `v1.0.0` waits until Confab
+    uses genx's whole surface with no open bug or contradiction finding. The
+    lines that waited for zp's move are gone from the roadmap (the older
+    entries below stay as they were written).
+  - **G1, `genx run <producer>`** (Confab's F32): dropped, back in the
+    roadmap's backlog as item 9 with no current user.
+- **Next:** nothing planned until Confab finds something in genx.
+- **Waiting on you:** nothing. Tagging `v1.0.0` stays yours.
+
 ## 2026-11-14: amendment A4, parameters for a generator; v0.2.0
 
 - **Landed** ([PR #15](https://github.com/epistemer/genx/pull/15)):
